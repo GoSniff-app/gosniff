@@ -21,32 +21,6 @@ const ENERGY = [
 ];
 const GENDERS = ['Male', 'Female'];
 
-function compressImage(file, maxWidth = 400, quality = 0.7) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL('image/jpeg', quality);
-        resolve(compressed);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function EditProfile({ dog, onClose }) {
   const { updateDog, deleteAccount } = useAuth();
   const [dogName, setDogName] = useState(dog.name || '');
@@ -65,11 +39,12 @@ export default function EditProfile({ dog, onClose }) {
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  async function handlePhotoSelect(e) {
+  function handlePhotoSelect(e) {
     const file = e.target.files[0];
     if (file) {
-      const compressed = await compressImage(file);
-      setDogPhotoPreview(compressed);
+      const reader = new FileReader();
+      reader.onloadend = () => setDogPhotoPreview(reader.result);
+      reader.readAsDataURL(file);
     }
   }
 
@@ -137,6 +112,7 @@ export default function EditProfile({ dog, onClose }) {
           <button onClick={onClose} className="text-2xl" style={{ color: 'var(--gs-text-light)' }}>×</button>
         </div>
 
+        {/* Photo */}
         <div className="flex flex-col items-center gap-3 mb-5">
           {dogPhotoPreview ? (
             <div className="w-24 h-24 rounded-full overflow-hidden" style={{ border: '3px solid var(--gs-green)' }}>
@@ -144,7 +120,7 @@ export default function EditProfile({ dog, onClose }) {
             </div>
           ) : (
             <div className="w-24 h-24 rounded-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', border: '3px dashed var(--gs-mint)' }}>
-              <PawLogo size={36} />
+              <PawLogo size={36} color="var(--gs-mint)" />
             </div>
           )}
           <label className="btn-secondary cursor-pointer text-sm" style={{ padding: '6px 16px' }}>
@@ -153,11 +129,13 @@ export default function EditProfile({ dog, onClose }) {
           </label>
         </div>
 
+        {/* Name */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Name</label>
           <input type="text" className="gs-input" value={dogName} onChange={(e) => setDogName(e.target.value)} />
         </div>
 
+        {/* Breed */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Breed</label>
           <input type="text" className="gs-input mb-2" placeholder="Search breeds..." value={breedSearch} onChange={(e) => setBreedSearch(e.target.value)} />
@@ -168,6 +146,7 @@ export default function EditProfile({ dog, onClose }) {
           </div>
         </div>
 
+        {/* Size */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Size</label>
           <div className="flex flex-wrap gap-2">
@@ -177,6 +156,7 @@ export default function EditProfile({ dog, onClose }) {
           </div>
         </div>
 
+        {/* Personality (multi-select, max 3) */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Personality (pick up to 3)</label>
           <div className="flex flex-wrap gap-2">
@@ -191,6 +171,7 @@ export default function EditProfile({ dog, onClose }) {
           {energy.length === 3 && <p className="text-xs mt-1" style={{ color: 'var(--gs-text-light)' }}>Max 3 selected</p>}
         </div>
 
+        {/* Gender */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Gender</label>
           <div className="flex gap-2">
@@ -200,11 +181,13 @@ export default function EditProfile({ dog, onClose }) {
           </div>
         </div>
 
+        {/* Age */}
         <div className="mb-5">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Age</label>
           <input type="text" className="gs-input" placeholder="e.g. 3 years, 6 months, puppy..." value={age} onChange={(e) => setAge(e.target.value)} />
         </div>
 
+        {/* Save button */}
         <button
           className="btn-primary w-full mb-4"
           disabled={!dogName.trim() || !breed || !size || energy.length === 0 || !gender || saving}
@@ -213,7 +196,8 @@ export default function EditProfile({ dog, onClose }) {
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
 
-        <div className="pt-4" style={{ borderTop: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
+        {/* Delete section */}
+        <div className="pt-4" style={{ borderTop: '1px solid var(--gs-mint)' }}>
           {!showDeleteConfirm ? (
             <button
               onClick={() => setShowDeleteConfirm(true)}
