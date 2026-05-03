@@ -245,15 +245,36 @@ export default function MapView() {
       </GoogleMap>
 
       {/* HEADER BAR */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-3 pb-3"
-        style={{ background: 'rgba(255,255,255,0.95)', zIndex: 10, pointerEvents: 'auto' }}>
-        <div className="flex items-center gap-2">
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        background: 'rgba(255,255,255,0.95)',
+        zIndex: 9999,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <PawLogo size={32} />
-          <span className="text-xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff</span>
+          <span style={{ fontFamily: "'Fredoka', sans-serif", color: '#1a1a1a', fontSize: '1.25rem', fontWeight: 700 }}>GoSniff</span>
         </div>
-        {/* HAMBURGER MENU BUTTON */}
-        <button onClick={() => setShowMenu(!showMenu)} className="w-10 h-10 rounded-full flex flex-col items-center justify-center gap-1"
-          style={{ background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e5e5e5' }}>
+        <button onClick={() => setShowMenu(!showMenu)} style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '4px',
+          background: '#ffffff',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          border: '1px solid #e5e5e5',
+          cursor: 'pointer',
+        }}>
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
@@ -262,7 +283,7 @@ export default function MapView() {
 
       {/* DROPDOWN MENU */}
       {showMenu && (
-        <div className="absolute top-16 right-4 gs-card fade-in z-50" style={{ minWidth: '220px' }}>
+        <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10000, minWidth: '220px' }}>
           {/* Dog profile header */}
           <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
             <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
@@ -398,7 +419,7 @@ export default function MapView() {
         </div>
       )}
 
-      {showMenu && (<div className="absolute inset-0 z-30" onClick={() => setShowMenu(false)} />)}
+      {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setShowMenu(false)} />)}
     </div>
   );
 }
