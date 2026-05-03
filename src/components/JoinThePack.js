@@ -21,7 +21,37 @@ const ENERGY = [
 ];
 const GENDERS = ['Male', 'Female'];
 
-export default function JoinThePack({ onComplete }) {
+// Compress and resize an image file to fit under Firestore's 1MB field limit.
+// Returns a base64 data URL string.
+function compressImage(file, maxWidth = 400, quality = 0.7) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        // Scale down if wider than maxWidth, keeping aspect ratio
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        // Convert to JPEG at the given quality (0 to 1)
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+export default function JoinThePack() {
   const { signUp } = useAuth();
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
@@ -39,13 +69,12 @@ export default function JoinThePack({ onComplete }) {
   const [password, setPassword] = useState('');
   const totalSteps = 5;
 
-  function handlePhotoSelect(e) {
+  async function handlePhotoSelect(e) {
     const file = e.target.files[0];
     if (file) {
       setDogPhoto(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setDogPhotoPreview(reader.result);
-      reader.readAsDataURL(file);
+      const compressed = await compressImage(file);
+      setDogPhotoPreview(compressed);
     }
   }
 
@@ -60,7 +89,6 @@ export default function JoinThePack({ onComplete }) {
         age: age || 'Not specified',
       };
       await signUp(email, password, dogData);
-      if (onComplete) onComplete();
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         setError('That email is already registered. Try signing in instead.');

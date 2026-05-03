@@ -21,6 +21,34 @@ const ENERGY = [
 ];
 const GENDERS = ['Male', 'Female'];
 
+// Compress and resize an image file to fit under Firestore's 1MB field limit.
+// Returns a base64 data URL string.
+function compressImage(file, maxWidth = 400, quality = 0.7) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function EditProfile({ dog, onClose }) {
   const { updateDog, deleteAccount } = useAuth();
   const [dogName, setDogName] = useState(dog.name || '');
@@ -39,12 +67,11 @@ export default function EditProfile({ dog, onClose }) {
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  function handlePhotoSelect(e) {
+  async function handlePhotoSelect(e) {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setDogPhotoPreview(reader.result);
-      reader.readAsDataURL(file);
+      const compressed = await compressImage(file);
+      setDogPhotoPreview(compressed);
     }
   }
 
