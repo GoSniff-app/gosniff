@@ -305,7 +305,7 @@ export default function MapView() {
               <button
                 className="btn-secondary w-full flex items-center justify-center gap-2"
                 style={{ padding: '14px 20px', fontSize: '1rem', fontWeight: 600 }}
-                onClick={() => { alert("FIRED"); setShowMenu(false); setTimeout(() => { setShowEditProfile(true); alert("EDIT SET TRUE"); }, 500); }}>
+                onClick={() => { setShowMenu(false); setTimeout(() => setShowEditProfile(true), 500); }}>
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -326,7 +326,7 @@ export default function MapView() {
       )}
 
       {showEditProfile && myDog && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "red", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "3rem" }} onClick={() => setShowEditProfile(false)}>EDIT PROFILE WORKS - TAP TO CLOSE</div>
+        <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
       )}
 
       {/* BOTTOM PANEL */}
