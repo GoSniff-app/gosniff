@@ -214,6 +214,36 @@ export default function MapView() {
     );
   }
 
+  // Show a full-screen message if location was denied (instead of a confusing SF map)
+  if (locationError && !hasLocation) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center p-6" style={{ background: 'var(--gs-bg)' }}>
+        <div className="text-center fade-in max-w-sm">
+          <PawLogo size={72} className="mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff needs your location</h1>
+          <p className="mb-6" style={{ color: 'var(--gs-text-light)', lineHeight: 1.6 }}>
+            GoSniff uses your location to show you nearby dogs and let you check in at parks. Without it, we cannot place you on the map.
+          </p>
+          <div className="gs-card mb-6 text-left" style={{ background: 'var(--gs-cream)' }}>
+            <p className="font-semibold text-sm mb-2" style={{ color: 'var(--gs-forest)' }}>How to enable location:</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--gs-text-light)', lineHeight: 1.6 }}>
+              <strong>iPhone:</strong> Go to Settings &gt; Privacy &amp; Security &gt; Location Services &gt; turn on for your browser (Safari or Chrome). Set to "While Using."
+            </p>
+            <p className="text-sm" style={{ color: 'var(--gs-text-light)', lineHeight: 1.6 }}>
+              <strong>Android:</strong> Go to Settings &gt; Location &gt; make sure it is on. Then open your browser settings and allow location access.
+            </p>
+          </div>
+          <button className="btn-primary w-full text-lg" onClick={() => window.location.reload()}>
+            I have enabled location, reload
+          </button>
+          <button className="btn-secondary w-full mt-3" onClick={() => { setLocationError(null); }}>
+            Browse without checking in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
