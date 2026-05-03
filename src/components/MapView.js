@@ -283,37 +283,44 @@ export default function MapView() {
 
       {/* DROPDOWN MENU */}
       {showMenu && (
-        <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10000, minWidth: '220px' }}>
-          {/* Dog profile header */}
-          <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
-            <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
-              {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full object-cover" />) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={16} /></div>
-              )}
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setShowMenu(false)} />
+          <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10000, minWidth: '220px' }}>
+            {/* Dog profile header */}
+            <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
+              <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
+                {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full object-cover" />) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={16} /></div>
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog?.name}</p>
+                <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog?.name}</p>
-              <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
-            </div>
+            {/* Menu items */}
+            <button onClick={() => { setShowEditProfile(true); setShowMenu(false); }}
+              className="w-full text-left font-semibold py-3 px-3 flex items-center gap-3 rounded-xl"
+              style={{ color: 'var(--gs-forest)', fontSize: '1rem', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s', WebkitTapHighlightColor: 'transparent' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-gray-100, #f5f5f5)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Edit Profile
+            </button>
+            <button onClick={() => { signOut(); setShowMenu(false); }}
+              className="w-full text-left font-semibold py-3 px-3 flex items-center gap-3 rounded-xl"
+              style={{ color: 'var(--gs-coral)', fontSize: '1rem', background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s', WebkitTapHighlightColor: 'transparent' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-red-light, #FDECEA)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M10.5 11.5L14 8M14 8L10.5 4.5M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Sign Out
+            </button>
           </div>
-          {/* Menu items */}
-          <button onClick={() => { setShowEditProfile(true); setShowMenu(false); }}
-            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
-            style={{ color: 'var(--gs-forest)' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Edit Profile
-          </button>
-          <button onClick={() => { signOut(); setShowMenu(false); }}
-            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
-            style={{ color: 'var(--gs-coral)' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M10.5 11.5L14 8M14 8L10.5 4.5M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Sign Out
-          </button>
-        </div>
+        </>
       )}
 
       {showEditProfile && myDog && (
@@ -419,7 +426,6 @@ export default function MapView() {
         </div>
       )}
 
-      {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setShowMenu(false)} />)}
     </div>
   );
 }
