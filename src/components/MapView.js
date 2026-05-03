@@ -326,7 +326,7 @@ export default function MapView() {
       )}
 
       {showEditProfile && myDog && (
-        <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
+        <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "red", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "3rem" }} onClick={() => setShowEditProfile(false)}>EDIT PROFILE WORKS - TAP TO CLOSE</div>
       )}
 
       {/* BOTTOM PANEL */}
