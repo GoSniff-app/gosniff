@@ -134,7 +134,7 @@ export default function EditProfile({ dog, onClose }) {
 
   return (
     <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 10000 }}>
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleBackdropClick} />
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }}  />
       <div
         className="relative w-full sm:max-w-md gs-card slide-up"
         style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, maxHeight: '85vh', overflow: 'auto' }}
