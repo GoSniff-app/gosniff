@@ -245,18 +245,18 @@ export default function MapView() {
       </GoogleMap>
 
       {/* HEADER BAR */}
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-3 pb-2"
-        style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0))', pointerEvents: 'none' }}>
-        <div className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-3 pb-3"
+        style={{ background: 'rgba(255,255,255,0.95)', zIndex: 10, pointerEvents: 'auto' }}>
+        <div className="flex items-center gap-2">
           <PawLogo size={32} />
           <span className="text-xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff</span>
         </div>
         {/* HAMBURGER MENU BUTTON */}
         <button onClick={() => setShowMenu(!showMenu)} className="w-10 h-10 rounded-full flex flex-col items-center justify-center gap-1"
-          style={{ background: 'var(--gs-white)', boxShadow: '0 2px 8px var(--gs-shadow)', pointerEvents: 'auto', border: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
-          <span style={{ display: 'block', width: '18px', height: '2px', background: 'var(--gs-forest)', borderRadius: '1px' }} />
-          <span style={{ display: 'block', width: '18px', height: '2px', background: 'var(--gs-forest)', borderRadius: '1px' }} />
-          <span style={{ display: 'block', width: '18px', height: '2px', background: 'var(--gs-forest)', borderRadius: '1px' }} />
+          style={{ background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e5e5e5' }}>
+          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
         </button>
       </div>
 
