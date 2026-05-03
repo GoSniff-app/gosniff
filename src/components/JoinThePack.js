@@ -127,8 +127,8 @@ export default function JoinThePack() {
         {step === 2 && (
           <div className="fade-in">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Show us that face!</h2>
-              <p style={{ color: 'var(--gs-text-light)' }}>{dogName}'s profile photo (you can change it later)</p>
+              <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Upload {dogName}'s Photo</h2>
+              <p style={{ color: 'var(--gs-text-light)' }}>You can always change it later.</p>
             </div>
             <div className="flex flex-col items-center gap-4">
               {dogPhotoPreview ? (
@@ -137,7 +137,12 @@ export default function JoinThePack() {
                 </div>
               ) : (
                 <div className="w-32 h-32 rounded-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', border: '3px dashed var(--gs-mint)' }}>
-                  <PawLogo size={48} />
+                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="24" cy="20" r="8" stroke="#a3a3a3" strokeWidth="2" fill="none"/>
+                    <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a3a3a3" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                    <circle cx="20" cy="12" r="3" fill="#a3a3a3"/>
+                    <circle cx="28" cy="12" r="3" fill="#a3a3a3"/>
+                  </svg>
                 </div>
               )}
               <label className="btn-secondary cursor-pointer">
