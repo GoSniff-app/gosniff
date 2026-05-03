@@ -6,6 +6,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import PawLogo from './PawLogo';
+import EditProfile from './EditProfile';
 
 const mapStyles = [
   { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#c8e6c9' }] },
@@ -73,12 +74,13 @@ async function reverseGeocode(lat, lng) {
 }
 
 export default function MapView() {
-  const { user, dogs, checkIn, checkOut, signOut } = useAuth();
+  const { user, dogs, checkIn, checkOut, signOut, updateDog } = useAuth();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
   const [selectedDog, setSelectedDog] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [showCheckInPanel, setShowCheckInPanel] = useState(false);
@@ -287,8 +289,13 @@ export default function MapView() {
               <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
             </div>
           </div>
+          <button onClick={() => { setShowEditProfile(true); setShowMenu(false); }} className="w-full text-left text-sm font-semibold py-2 px-1" style={{ color: 'var(--gs-forest)' }}>Edit Profile</button>
           <button onClick={() => { signOut(); setShowMenu(false); }} className="w-full text-left text-sm font-semibold py-2 px-1" style={{ color: 'var(--gs-coral)' }}>Sign Out</button>
         </div>
+      )}
+
+      {showEditProfile && myDog && (
+        <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
       )}
 
       <div className="absolute bottom-0 left-0 right-0 p-4" style={{ pointerEvents: 'none' }}>

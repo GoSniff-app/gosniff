@@ -7,17 +7,21 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  deleteUser,
 } from 'firebase/auth';
 import {
   doc,
   setDoc,
+  getDoc,
   collection,
   query,
   where,
   onSnapshot,
   addDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
+  getDocs,
 } from 'firebase/firestore';
 
 const AuthContext = createContext({});
@@ -32,7 +36,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth) { setLoading(false); return; }
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (!firebaseUser) {
@@ -110,10 +113,21 @@ export function AuthProvider({ children }) {
     await updateDoc(doc(db, 'dogs', dogId), data);
   }
 
+  async function deleteAccount(dogId) {
+    // Delete the dog document from Firestore
+    await deleteDoc(doc(db, 'dogs', dogId));
+    // Delete the human document from Firestore
+    if (user) {
+      await deleteDoc(doc(db, 'humans', user.uid));
+      // Delete the Firebase Auth user
+      await deleteUser(user);
+    }
+  }
+
   const value = {
     user, dogs, loading,
     signUp, signIn, signOut,
-    checkIn, checkOut, updateDog,
+    checkIn, checkOut, updateDog, deleteAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
