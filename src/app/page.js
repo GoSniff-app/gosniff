@@ -8,10 +8,13 @@ import MapView from '@/components/MapView';
 import PawLogo from '@/components/PawLogo';
 
 function AppContent() {
-  const { user, dogs, loading } = useAuth();
+  const { user, dogs, loading, dogsLoaded } = useAuth();
   const [authMode, setAuthMode] = useState('welcome');
 
-  if (loading) {
+  // Show loading screen while auth is resolving OR while dogs are still loading for an authenticated user.
+  // This prevents the flash where user exists but dogs haven't arrived yet,
+  // which was causing the app to wrongly show JoinThePack to returning users.
+  if (loading || (user && !dogsLoaded)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center paw-pattern" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in">

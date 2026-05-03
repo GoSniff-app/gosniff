@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { auth, db } from './firebase';
 import {
   onAuthStateChanged,
@@ -34,27 +34,54 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [dogs, setDogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  // NEW: Track whether dogs have been loaded at least once for this user session.
+  // This prevents the race condition where user is set but dogs haven't arrived yet.
+  const [dogsLoaded, setDogsLoaded] = useState(false);
+  // Keep a ref to the dogs listener so we can clean it up properly
+  const dogsUnsubRef = useRef(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      // Clean up any previous dogs listener before setting up a new one
+      if (dogsUnsubRef.current) {
+        dogsUnsubRef.current();
+        dogsUnsubRef.current = null;
+      }
+
       setUser(firebaseUser);
+
       if (!firebaseUser) {
         setDogs([]);
+        setDogsLoaded(false);
         setLoading(false);
         return;
       }
+
+      // User exists: subscribe to their dogs.
+      // Keep loading true until dogs snapshot arrives.
+      setDogsLoaded(false);
+
       const dogsQuery = query(
         collection(db, 'dogs'),
         where('humanIds', 'array-contains', firebaseUser.uid)
       );
-      const unsubDogs = onSnapshot(dogsQuery, (snapshot) => {
+
+      dogsUnsubRef.current = onSnapshot(dogsQuery, (snapshot) => {
         const dogList = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setDogs(dogList);
+        setDogsLoaded(true);
         setLoading(false);
       });
-      return () => unsubDogs();
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      // Also clean up dogs listener on unmount
+      if (dogsUnsubRef.current) {
+        dogsUnsubRef.current();
+        dogsUnsubRef.current = null;
+      }
+    };
   }, []);
 
   async function signUp(email, password, dogData) {
@@ -125,7 +152,7 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
-    user, dogs, loading,
+    user, dogs, loading, dogsLoaded,
     signUp, signIn, signOut,
     checkIn, checkOut, updateDog, deleteAccount,
   };
