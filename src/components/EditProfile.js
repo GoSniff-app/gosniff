@@ -122,7 +122,7 @@ export default function EditProfile({ dog, onClose }) {
 
   if (saved) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', zIndex: 10000 }}>
+      <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', zIndex: 99999 }}>
         <div className="gs-card text-center bounce-in" style={{ maxWidth: '320px' }}>
           <PawLogo size={48} className="mx-auto mb-3" />
           <h2 className="text-xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Updated!</h2>
@@ -133,7 +133,7 @@ export default function EditProfile({ dog, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 10000 }}>
+    <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 99999 }}>
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleBackdropClick} />
       <div
         className="relative w-full sm:max-w-md gs-card slide-up"
