@@ -22,6 +22,8 @@ const ENERGY = [
 const GENDERS = ['Male', 'Female'];
 
 export default function EditProfile({ dog, onClose }) {
+  const [canClose, setCanClose] = useState(false);
+  useState(() => { setTimeout(() => setCanClose(true), 300); });
   const { updateDog, deleteAccount } = useAuth();
   const [dogName, setDogName] = useState(dog.name || '');
   const [dogPhotoPreview, setDogPhotoPreview] = useState(dog.photoURL || null);
@@ -99,7 +101,7 @@ export default function EditProfile({ dog, onClose }) {
 
   return (
     <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 10000 }}>
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => { if (canClose) onClose(); }} />
       <div
         className="relative w-full sm:max-w-md gs-card slide-up"
         style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, maxHeight: '85vh', overflow: 'auto' }}
