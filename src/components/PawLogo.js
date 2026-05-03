@@ -1,18 +1,29 @@
-export default function PawLogo({ size = 48, color = '#2D6A4F', className = '' }) {
+'use client';
+
+export default function PawLogo({ size = 48, className = '', animate = false }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      fill={color}
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <ellipse cx="50" cy="65" rx="22" ry="20" />
-      <ellipse cx="28" cy="35" rx="10" ry="13" transform="rotate(-15 28 35)" />
-      <ellipse cx="72" cy="35" rx="10" ry="13" transform="rotate(15 72 35)" />
-      <ellipse cx="38" cy="28" rx="8" ry="11" transform="rotate(-5 38 28)" />
-      <ellipse cx="62" cy="28" rx="8" ry="11" transform="rotate(5 62 28)" />
-    </svg>
+    <>
+      {animate && (
+        <style>{`
+          @keyframes pulse-logo {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.85; }
+          }
+        `}</style>
+      )}
+      <img
+        src="/GoSniff_Logo.png"
+        alt="GoSniff"
+        width={size}
+        height={size}
+        className={className}
+        style={{
+          width: size,
+          height: size,
+          objectFit: 'contain',
+          animation: animate ? 'pulse-logo 1.5s ease-in-out infinite' : 'none',
+        }}
+      />
+    </>
   );
 }

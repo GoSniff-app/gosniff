@@ -15,7 +15,7 @@ function AppContent() {
     return (
       <div className="h-screen w-screen flex items-center justify-center paw-pattern" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in">
-          <PawLogo size={72} className="mx-auto mb-4" />
+          <PawLogo size={72} className="mx-auto mb-4" animate />
           <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff</h1>
           <p className="text-sm" style={{ color: 'var(--gs-green-mid)' }}>Loading your pack...</p>
         </div>

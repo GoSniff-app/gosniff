@@ -209,7 +209,7 @@ export default function MapView() {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in">
-          <PawLogo size={60} className="mx-auto mb-3" />
+          <PawLogo size={60} className="mx-auto mb-3" animate />
           <p style={{ color: 'var(--gs-green)', fontWeight: 600 }}>Loading map...</p>
         </div>
       </div>
@@ -221,7 +221,7 @@ export default function MapView() {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center p-6" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in max-w-sm">
-          <PawLogo size={72} className="mx-auto mb-4" />
+          <PawLogo size={72} className="mx-auto mb-4" animate />
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff needs your location</h1>
           <p className="mb-6" style={{ color: 'var(--gs-text-light)', lineHeight: 1.6 }}>
             GoSniff uses your location to show you nearby dogs and let you check in at parks. Without it, we cannot place you on the map.
