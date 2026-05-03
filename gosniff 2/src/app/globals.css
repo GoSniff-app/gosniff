@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+/* GoSniff Brand Palette */
+:root {
+  --gs-forest: #1B4332;
+  --gs-green: #2D6A4F;
+  --gs-green-mid: #40916C;
+  --gs-green-light: #52B788;
+  --gs-mint: #B7E4C7;
+  --gs-cream: #F0F7F4;
+  --gs-bg: #E9F5F0;
+  --gs-warm: #D4A373;
+  --gs-warm-light: #E9C89B;
+  --gs-coral: #E07A5F;
+  --gs-text: #1B4332;
+  --gs-text-light: #6B7F76;
+  --gs-white: #FFFFFF;
+  --gs-shadow: rgba(27, 67, 50, 0.12);
+}
+
+/* Paw pattern background */
+.paw-pattern {
+  background-image: radial-gradient(circle at 20% 30%, rgba(82, 183, 136, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(212, 163, 115, 0.06) 0%, transparent 50%);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-soft {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.08); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.fade-in { animation: fadeIn 0.5s ease-out both; }
+.slide-up { animation: slideUp 0.6s ease-out both; }
+.bounce-in { animation: bounce-in 0.5s ease-out both; }
+
+/* Button base */
+.btn-primary {
+  background: linear-gradient(135deg, var(--gs-green), var(--gs-green-mid));
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 28px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px var(--gs-shadow);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--gs-shadow);
+}
+.btn-primary:active {
+  transform: translateY(0);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: var(--gs-white);
+  color: var(--gs-green);
+  border: 2px solid var(--gs-mint);
+  border-radius: 14px;
+  padding: 12px 28px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  background: var(--gs-cream);
+  border-color: var(--gs-green-light);
+}
+
+/* Card style */
+.gs-card {
+  background: var(--gs-white);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px var(--gs-shadow);
+  padding: 24px;
+}
+
+/* Input style */
+.gs-input {
+  width: 100%;
+  padding: 14px 18px;
+  border: 2px solid var(--gs-mint);
+  border-radius: 12px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+  background: var(--gs-white);
+  color: var(--gs-text);
+}
+.gs-input:focus {
+  border-color: var(--gs-green-light);
+  box-shadow: 0 0 0 3px rgba(82, 183, 136, 0.15);
+}
+.gs-input::placeholder {
+  color: var(--gs-text-light);
+}
+
+/* Selection chips (for breed, size, energy) */
+.gs-chip {
+  display: inline-block;
+  padding: 10px 20px;
+  border: 2px solid var(--gs-mint);
+  border-radius: 100px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gs-text-light);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--gs-white);
+}
+.gs-chip:hover {
+  border-color: var(--gs-green-light);
+  color: var(--gs-green);
+}
+.gs-chip.selected {
+  background: var(--gs-green);
+  border-color: var(--gs-green);
+  color: white;
+}
+
+/* Map pin custom styling */
+.dog-pin {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--gs-green);
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--gs-shadow);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.dog-pin:hover {
+  transform: scale(1.15);
+}
+.dog-pin img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gs-mint); border-radius: 3px; }
+
+/* Reset */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--gs-text);
+  background: var(--gs-bg);
+  -webkit-font-smoothing: antialiased;
+}

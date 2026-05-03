@@ -14,11 +14,7 @@ const BREEDS = [
 ];
 
 const SIZES = ['Small (under 25 lbs)', 'Medium (25-50 lbs)', 'Large (50-90 lbs)', 'XL (90+ lbs)'];
-const ENERGY = [
-  'Couch Potato', 'Casual Sniffer', 'Full Zoomies', 'Adolescent Insanity',
-  'Puppy Pandemonium', 'Senior Sniffs', 'Shy But Canine Curious',
-  'Selective Sniffer', 'Ball Is Life', 'Social Butterfly',
-];
+const ENERGY = ['Couch Potato', 'Moderate', 'High Energy', 'Turbo Mode'];
 const GENDERS = ['Male', 'Female'];
 
 export default function JoinThePack({ onComplete }) {
@@ -32,7 +28,7 @@ export default function JoinThePack({ onComplete }) {
   const [breed, setBreed] = useState('');
   const [breedSearch, setBreedSearch] = useState('');
   const [size, setSize] = useState('');
-  const [energy, setEnergy] = useState([]);
+  const [energy, setEnergy] = useState('');
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
@@ -157,17 +153,10 @@ export default function JoinThePack({ onComplete }) {
               </div>
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Personality (pick up to 3)</label>
+              <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Energy Level</label>
               <div className="flex flex-wrap gap-2">
-                {ENERGY.map((e) => (
-                  <button key={e} className={'gs-chip ' + (energy.includes(e) ? 'selected' : '')}
-                    onClick={() => {
-                      if (energy.includes(e)) { setEnergy(energy.filter((x) => x !== e)); }
-                      else if (energy.length < 3) { setEnergy([...energy, e]); }
-                    }}>{e}</button>
-                ))}
+                {ENERGY.map((e) => (<button key={e} className={'gs-chip ' + (energy === e ? 'selected' : '')} onClick={() => setEnergy(e)}>{e}</button>))}
               </div>
-              {energy.length === 3 && <p className="text-xs mt-1" style={{ color: 'var(--gs-text-light)' }}>Max 3 selected</p>}
             </div>
             <div className="mb-4">
               <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Gender</label>
@@ -181,7 +170,7 @@ export default function JoinThePack({ onComplete }) {
             </div>
             <div className="flex gap-3 mt-6">
               <button className="btn-secondary flex-1" onClick={() => setStep(3)}>Back</button>
-              <button className="btn-primary flex-1" disabled={!size || energy.length === 0 || !gender} onClick={() => setStep(5)}>Almost Done!</button>
+              <button className="btn-primary flex-1" disabled={!size || !energy || !gender} onClick={() => setStep(5)}>Almost Done!</button>
             </div>
           </div>
         )}

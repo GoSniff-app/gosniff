@@ -382,12 +382,7 @@ export default function MapView() {
             </div>
             <div className="flex gap-2 mt-4 flex-wrap">
               <span className="gs-chip selected" style={{ cursor: 'default' }}>{selectedDog.size || 'Size?'}</span>
-              {(Array.isArray(selectedDog.energy) ? selectedDog.energy : [selectedDog.energy].filter(Boolean)).map((e) => (
-                <span key={e} className="gs-chip selected" style={{ cursor: 'default' }}>{e}</span>
-              ))}
-              {!selectedDog.energy || (Array.isArray(selectedDog.energy) && selectedDog.energy.length === 0) ? (
-                <span className="gs-chip selected" style={{ cursor: 'default' }}>Personality?</span>
-              ) : null}
+              <span className="gs-chip selected" style={{ cursor: 'default' }}>{selectedDog.energy || 'Energy?'}</span>
             </div>
             {selectedDog.id !== myDog?.id && (
               <button className="btn-primary w-full mt-4" onClick={() => alert('Messaging coming soon!')}>Say Hi to {selectedDog.name}</button>
