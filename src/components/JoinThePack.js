@@ -21,8 +21,6 @@ const ENERGY = [
 ];
 const GENDERS = ['Male', 'Female'];
 
-// Compress and resize an image file to fit under Firestore's 1MB field limit.
-// Returns a base64 data URL string.
 function compressImage(file, maxWidth = 400, quality = 0.7) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -32,7 +30,6 @@ function compressImage(file, maxWidth = 400, quality = 0.7) {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        // Scale down if wider than maxWidth, keeping aspect ratio
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
           width = maxWidth;
@@ -41,7 +38,6 @@ function compressImage(file, maxWidth = 400, quality = 0.7) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        // Convert to JPEG at the given quality (0 to 1)
         const compressed = canvas.toDataURL('image/jpeg', quality);
         resolve(compressed);
       };
@@ -108,6 +104,7 @@ export default function JoinThePack() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 paw-pattern" style={{ background: 'var(--gs-bg)' }}>
       <div className="gs-card w-full max-w-md slide-up">
+        {/* Progress bar */}
         <div className="flex gap-2 mb-6">
           {Array.from({ length: totalSteps }, (_, i) => (
             <div key={i} className="h-1.5 rounded-full flex-1 transition-all duration-300" style={{ background: i < step ? 'var(--gs-green)' : 'var(--gs-mint)' }} />
@@ -119,9 +116,9 @@ export default function JoinThePack() {
             <div className="text-center mb-6">
               <PawLogo size={56} className="mx-auto mb-3" />
               <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Join the Pack</h2>
-              <p style={{ color: 'var(--gs-text-light)' }}>Let us start with the important stuff.</p>
+              <p style={{ color: 'var(--gs-text-light)' }}>Let's start with the important stuff.</p>
             </div>
-            <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>What is your dog's name?</label>
+            <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>What's your dog's name?</label>
             <input type="text" className="gs-input text-lg" placeholder="e.g. Biscuit, Mochi, Luna..." value={dogName} onChange={(e) => setDogName(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && dogName.trim() && setStep(2)} />
             <button className="btn-primary w-full mt-6" disabled={!dogName.trim()} onClick={() => setStep(2)}>Next</button>
           </div>
@@ -140,7 +137,7 @@ export default function JoinThePack() {
                 </div>
               ) : (
                 <div className="w-32 h-32 rounded-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', border: '3px dashed var(--gs-mint)' }}>
-                  <PawLogo size={48} color="var(--gs-mint)" />
+                  <PawLogo size={48} />
                 </div>
               )}
               <label className="btn-secondary cursor-pointer">

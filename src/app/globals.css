@@ -1,132 +1,190 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
 
 :root {
-  --gs-forest: #1B4332;
-  --gs-green: #2D6A4F;
-  --gs-green-mid: #40916C;
-  --gs-green-light: #52B788;
-  --gs-mint: #B7E4C7;
-  --gs-cream: #F0F7F4;
-  --gs-bg: #E9F5F0;
-  --gs-warm: #D4A373;
-  --gs-warm-light: #E9C89B;
-  --gs-coral: #E07A5F;
-  --gs-text: #1B4332;
-  --gs-text-light: #6B7F76;
-  --gs-white: #FFFFFF;
-  --gs-shadow: rgba(27, 67, 50, 0.12);
+  /* PRIMARY: Teal — buttons, accents, selected states, links */
+  --gs-teal: #0097A7;
+  --gs-teal-dark: #007A87;
+  --gs-teal-light: #E0F4F5;
+
+  /* ACCENT: Red — logo accent, alerts, small personality pops */
+  --gs-red: #D43F2F;
+  --gs-red-light: #FDECEA;
+
+  /* NEUTRALS */
+  --gs-black: #1a1a1a;
+  --gs-white: #ffffff;
+  --gs-gray-50: #fafafa;
+  --gs-gray-100: #f5f5f5;
+  --gs-gray-200: #e5e5e5;
+  --gs-gray-300: #d4d4d4;
+  --gs-gray-400: #a3a3a3;
+  --gs-gray-500: #737373;
+  --gs-gray-600: #525252;
+
+  /* SEMANTIC MAPPINGS — these are what the components actually reference */
+  --gs-bg: #ffffff;
+  --gs-green: #0097A7;
+  --gs-green-mid: #007A87;
+  --gs-forest: #1a1a1a;
+  --gs-mint: #E0F4F5;
+  --gs-cream: #f5f5f5;
+  --gs-warm: #D43F2F;
+  --gs-coral: #D43F2F;
+  --gs-text-light: #737373;
+  --gs-shadow: rgba(0, 0, 0, 0.08);
 }
 
-.paw-pattern {
-  background-image: radial-gradient(circle at 20% 30%, rgba(82, 183, 136, 0.06) 0%, transparent 50%),
-    radial-gradient(circle at 80% 70%, rgba(212, 163, 115, 0.06) 0%, transparent 50%);
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(40px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes bounce-in {
-  0% { transform: scale(0.3); opacity: 0; }
-  50% { transform: scale(1.08); }
-  70% { transform: scale(0.95); }
-  100% { transform: scale(1); opacity: 1; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--gs-bg);
+  color: var(--gs-black);
+  -webkit-font-smoothing: antialiased;
 }
 
-.fade-in { animation: fadeIn 0.5s ease-out both; }
-.slide-up { animation: slideUp 0.6s ease-out both; }
-.bounce-in { animation: bounce-in 0.5s ease-out both; }
-
+/* BUTTONS */
 .btn-primary {
-  background: linear-gradient(135deg, var(--gs-green), var(--gs-green-mid));
+  background: var(--gs-teal);
   color: white;
   border: none;
+  padding: 14px 24px;
   border-radius: 14px;
-  padding: 14px 28px;
-  font-weight: 700;
   font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 14px var(--gs-shadow);
+  transition: background 0.2s, transform 0.1s;
 }
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px var(--gs-shadow);
+  background: var(--gs-teal-dark);
 }
-.btn-primary:active { transform: translateY(0); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-primary:active {
+  transform: scale(0.98);
+}
+.btn-primary:disabled {
+  background: var(--gs-gray-300);
+  cursor: not-allowed;
+}
 
 .btn-secondary {
   background: var(--gs-white);
-  color: var(--gs-green);
-  border: 2px solid var(--gs-mint);
+  color: var(--gs-black);
+  border: 1.5px solid var(--gs-gray-200);
+  padding: 14px 24px;
   border-radius: 14px;
-  padding: 12px 28px;
-  font-weight: 700;
   font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s, transform 0.1s;
 }
-.btn-secondary:hover { background: var(--gs-cream); border-color: var(--gs-green-light); }
-
-.gs-card {
-  background: var(--gs-white);
-  border-radius: 20px;
-  box-shadow: 0 4px 24px var(--gs-shadow);
-  padding: 24px;
+.btn-secondary:hover {
+  background: var(--gs-gray-50);
+}
+.btn-secondary:active {
+  transform: scale(0.98);
 }
 
+/* INPUTS */
 .gs-input {
   width: 100%;
-  padding: 14px 18px;
-  border: 2px solid var(--gs-mint);
+  padding: 12px 16px;
+  border: 1.5px solid var(--gs-gray-200);
   border-radius: 12px;
   font-size: 1rem;
+  background: var(--gs-gray-50);
+  color: var(--gs-black);
   outline: none;
-  transition: border-color 0.2s ease;
-  background: var(--gs-white);
-  color: var(--gs-text);
+  transition: border-color 0.2s;
 }
-.gs-input:focus { border-color: var(--gs-green-light); box-shadow: 0 0 0 3px rgba(82, 183, 136, 0.15); }
-.gs-input::placeholder { color: var(--gs-text-light); }
+.gs-input:focus {
+  border-color: var(--gs-teal);
+  background: var(--gs-white);
+}
+.gs-input::placeholder {
+  color: var(--gs-gray-400);
+}
 
+/* CARDS */
+.gs-card {
+  background: var(--gs-white);
+  border-radius: 18px;
+  padding: 24px;
+  border: 1px solid var(--gs-gray-200);
+}
+
+/* CHIPS */
 .gs-chip {
-  display: inline-block;
-  padding: 10px 20px;
-  border: 2px solid var(--gs-mint);
-  border-radius: 100px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--gs-text-light);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--gs-gray-200);
+  background: var(--gs-gray-100);
+  color: var(--gs-gray-600);
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  background: var(--gs-white);
+  transition: all 0.2s;
 }
-.gs-chip:hover { border-color: var(--gs-green-light); color: var(--gs-green); }
-.gs-chip.selected { background: var(--gs-green); border-color: var(--gs-green); color: white; }
+.gs-chip:hover {
+  border-color: var(--gs-gray-300);
+}
+.gs-chip.selected {
+  background: var(--gs-teal-light);
+  color: var(--gs-teal-dark);
+  border-color: var(--gs-teal);
+}
 
+/* DOG PINS ON MAP */
 .dog-pin {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 3px solid var(--gs-green);
   overflow: hidden;
-  box-shadow: 0 2px 8px var(--gs-shadow);
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
-.dog-pin:hover { transform: scale(1.15); }
-.dog-pin img { width: 100%; height: 100%; object-fit: cover; }
+.dog-pin:hover {
+  transform: scale(1.1);
+}
+.dog-pin img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  color: var(--gs-text);
-  background: var(--gs-bg);
-  -webkit-font-smoothing: antialiased;
+/* ANIMATIONS */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-up {
+  animation: slideUp 0.35s ease-out;
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bounce-in {
+  animation: bounceIn 0.5s ease-out;
+}
+
+/* SUBTLE PAW PATTERN — very faint on white */
+.paw-pattern {
+  background-image: radial-gradient(circle at 2px 2px, rgba(0, 151, 167, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
 }
