@@ -21,6 +21,57 @@ const mapContainerStyle = { width: '100%', height: '100%' };
 const defaultCenter = { lat: 37.7749, lng: -122.4194 };
 const AUTO_CHECKOUT_MS = 90 * 60 * 1000;
 
+// Use Google's Geocoding API to look up the place name from coordinates
+async function reverseGeocode(lat, lng) {
+  try {
+    const geocoder = new window.google.maps.Geocoder();
+    const response = await geocoder.geocode({ location: { lat, lng } });
+    if (response.results && response.results.length > 0) {
+      // Look for a park, point_of_interest, or neighborhood first
+      const parkResult = response.results.find((r) =>
+        r.types.some((t) => ['park', 'point_of_interest', 'natural_feature', 'campground', 'tourist_attraction'].includes(t))
+      );
+      if (parkResult) return parkResult.formatted_address.split(',')[0];
+      // Fall back to street name + neighborhood/city (strip house numbers for privacy)
+      // Find the street-level result
+      const streetResult = response.results.find((r) =>
+        r.types.some((t) => ['street_address', 'route', 'premise'].includes(t))
+      );
+      // Find the neighborhood or city for the second half
+      const neighborhoodResult = response.results.find((r) =>
+        r.types.some((t) => ['neighborhood', 'sublocality', 'sublocality_level_1'].includes(t))
+      );
+      const localityResult = response.results.find((r) =>
+        r.types.includes('locality')
+      );
+      const areaName = neighborhoodResult
+        ? neighborhoodResult.formatted_address.split(',')[0]
+        : localityResult
+          ? localityResult.formatted_address.split(',')[0]
+          : '';
+
+      if (streetResult) {
+        // Strip house numbers: remove leading digits/spaces from the address
+        const addressParts = streetResult.formatted_address.split(',');
+        const streetName = addressParts[0].replace(/^\d+\s*/, '').trim();
+        // Grab the city from the same address string (usually the second part)
+        const cityFromAddress = addressParts.length >= 2 ? addressParts[1].trim() : '';
+        // Prefer the neighborhood/locality lookup, but fall back to the address string
+        const area = areaName || cityFromAddress;
+        return area ? streetName + ', ' + area : streetName;
+      }
+      // If no street result, just use the area name
+      if (areaName) return areaName;
+      // Absolute last resort: city from the first result
+      const parts = response.results[0].formatted_address.split(',');
+      return parts.length >= 2 ? parts[parts.length - 2].trim() : parts[0];
+    }
+  } catch (err) {
+    console.error('Reverse geocoding failed:', err);
+  }
+  return '';
+}
+
 export default function MapView() {
   const { user, dogs, checkIn, checkOut, signOut } = useAuth();
   const [map, setMap] = useState(null);
@@ -34,18 +85,41 @@ export default function MapView() {
   const autoCheckoutRef = useRef(null);
   const myDog = dogs[0];
 
+  // NEW: Track whether we have a real GPS position (not the SF default)
+  const [hasLocation, setHasLocation] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [gpsCoords, setGpsCoords] = useState(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   });
 
+  // Request GPS on mount
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { enableHighAccuracy: true }
-      );
+    if (!navigator.geolocation) {
+      setLocationError('Your browser does not support location services.');
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCenter(coords);
+        setGpsCoords(coords);
+        setHasLocation(true);
+        setLocationError(null);
+      },
+      (err) => {
+        // err.code 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+        if (err.code === 1) {
+          setLocationError('Location access was denied. To check in, please enable location services in your browser settings and reload the page.');
+        } else {
+          setLocationError('Could not determine your location. Make sure location services are enabled and try again.');
+        }
+        setHasLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }, []);
 
   useEffect(() => {
@@ -72,11 +146,52 @@ export default function MapView() {
 
   const onMapLoad = useCallback((mapInstance) => setMap(mapInstance), []);
 
+  // NEW: When user taps "We're Here!", get fresh GPS and auto-detect location name
+  async function handleOpenCheckIn() {
+    setLocationError(null);
+    setDetectingLocation(true);
+    setShowCheckInPanel(true);
+    setLocationName('');
+
+    if (!navigator.geolocation) {
+      setLocationError('Your browser does not support location services.');
+      setDetectingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGpsCoords(coords);
+        setCenter(coords);
+        setHasLocation(true);
+        setLocationError(null);
+
+        // Auto-detect the place name
+        if (window.google && window.google.maps) {
+          const placeName = await reverseGeocode(coords.lat, coords.lng);
+          if (placeName) setLocationName(placeName);
+        }
+        setDetectingLocation(false);
+      },
+      (err) => {
+        if (err.code === 1) {
+          setLocationError('Location access was denied. To check in, please enable location services in your browser settings and reload the page.');
+        } else {
+          setLocationError('Could not determine your location. Make sure location services are enabled and try again.');
+        }
+        setHasLocation(false);
+        setDetectingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
   async function handleCheckIn() {
-    if (!locationName.trim()) return;
+    if (!locationName.trim() || !hasLocation || !gpsCoords) return;
     setCheckingIn(true);
     try {
-      await checkIn(myDog.id, locationName.trim(), center.lat, center.lng);
+      await checkIn(myDog.id, locationName.trim(), gpsCoords.lat, gpsCoords.lng);
       setShowCheckInPanel(false);
       setLocationName('');
     } catch (err) { console.error('Check-in failed:', err); }
@@ -156,18 +271,62 @@ export default function MapView() {
             <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
           </div>
         )}
+
+        {/* UPDATED CHECK-IN PANEL */}
         {showCheckInPanel && !myDog?.checkedIn && (
           <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
-            <h3 className="font-bold mb-2" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Where are you?</h3>
-            <input type="text" className="gs-input mb-3" placeholder="e.g. Dolores Park, Ocean Beach..." value={locationName} onChange={(e) => setLocationName(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()} />
+
+            {/* Show error if GPS is denied or unavailable */}
+            {locationError && (
+              <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--gs-cream)', border: '1px solid var(--gs-warm)' }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--gs-coral)' }}>Location needed</p>
+                <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5 }}>{locationError}</p>
+              </div>
+            )}
+
+            {/* Show loading while detecting location */}
+            {detectingLocation && !locationError && (
+              <div className="mb-3 text-center">
+                <p className="text-sm font-semibold" style={{ color: 'var(--gs-green)' }}>Sniffing out your location...</p>
+              </div>
+            )}
+
+            {/* Show location confirmation when we have GPS */}
+            {hasLocation && !detectingLocation && !locationError && (
+              <>
+                <h3 className="font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
+                  {locationName ? 'Looks like you are at:' : 'Where are you?'}
+                </h3>
+                <input
+                  type="text"
+                  className="gs-input mb-3"
+                  placeholder="e.g. Dolores Park, Ocean Beach..."
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
+                />
+                <p className="text-xs mb-3" style={{ color: 'var(--gs-text-light)' }}>
+                  Edit the name above if it does not look right.
+                </p>
+              </>
+            )}
+
             <div className="flex gap-2">
-              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); }}>Cancel</button>
-              <button className="btn-primary flex-1 text-sm" disabled={!locationName.trim() || checkingIn} onClick={handleCheckIn}>{checkingIn ? 'Checking in...' : 'Check In'}</button>
+              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); }}>Cancel</button>
+              <button
+                className="btn-primary flex-1 text-sm"
+                disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
+                onClick={handleCheckIn}
+              >
+                {checkingIn ? 'Checking in...' : 'Check In'}
+              </button>
             </div>
           </div>
         )}
+
         {!myDog?.checkedIn && !showCheckInPanel && (
-          <button className="btn-primary w-full text-lg bounce-in" onClick={() => setShowCheckInPanel(true)}
+          <button className="btn-primary w-full text-lg bounce-in" onClick={handleOpenCheckIn}
             style={{ pointerEvents: 'auto', padding: '18px', fontSize: '1.1rem', borderRadius: '18px' }}>
             We are Here!
           </button>
