@@ -365,7 +365,7 @@ export default function MapView() {
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={handleRefreshLocation} disabled={refreshingLocation} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>
-                {refreshingLocation ? 'Finding...' : 'Refresh'}
+                {refreshingLocation ? 'Finding...' : 'Refresh Location'}
               </button>
               <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
             </div>
