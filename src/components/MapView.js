@@ -345,20 +345,18 @@ export default function MapView() {
       <button
         onClick={handleRefreshLocation}
         disabled={refreshingLocation}
-        title="Refresh my location"
         style={{
           position: 'absolute',
-          bottom: myDog?.checkedIn ? '120px' : showCheckInPanel ? '220px' : '100px',
+          bottom: myDog?.checkedIn ? '120px' : showCheckInPanel ? '260px' : '100px',
           right: '16px',
-          width: '44px',
-          height: '44px',
-          borderRadius: '50%',
+          padding: '10px 14px',
+          borderRadius: '24px',
           background: refreshingLocation ? 'var(--gs-teal-light)' : '#ffffff',
           border: '1.5px solid var(--gs-gray-200)',
           boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: '6px',
           cursor: refreshingLocation ? 'wait' : 'pointer',
           zIndex: 10,
           transition: 'background 0.2s, bottom 0.3s',
@@ -366,9 +364,10 @@ export default function MapView() {
         }}
       >
         <svg
-          width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+          width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
           style={{
             animation: refreshingLocation ? 'pulse-logo 1s ease-in-out infinite' : 'none',
+            flexShrink: 0,
           }}
         >
           <circle cx="12" cy="12" r="3" stroke="var(--gs-teal)" strokeWidth="2" />
@@ -378,22 +377,10 @@ export default function MapView() {
           <line x1="0" y1="12" x2="4" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
           <line x1="20" y1="12" x2="24" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-teal)', whiteSpace: 'nowrap' }}>
+          {refreshingLocation ? 'Finding you...' : 'Refresh My Location'}
+        </span>
       </button>
-      {refreshingLocation && (
-        <div style={{
-          position: 'absolute',
-          bottom: myDog?.checkedIn ? '108px' : showCheckInPanel ? '208px' : '88px',
-          right: '68px',
-          background: 'rgba(255,255,255,0.95)',
-          padding: '4px 10px',
-          borderRadius: '8px',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
-          zIndex: 10,
-          pointerEvents: 'none',
-        }}>
-          <p style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--gs-teal)', whiteSpace: 'nowrap' }}>Finding you...</p>
-        </div>
-      )}
 
       {/* BOTTOM PANEL */}
       <div className="absolute bottom-0 left-0 right-0 p-4" style={{ pointerEvents: 'none' }}>
