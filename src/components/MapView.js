@@ -22,18 +22,23 @@ const mapContainerStyle = { width: '100%', height: '100%' };
 const defaultCenter = { lat: 37.7749, lng: -122.4194 };
 const AUTO_CHECKOUT_MS = 90 * 60 * 1000;
 
+// Use Google's Geocoding API to look up the place name from coordinates
 async function reverseGeocode(lat, lng) {
   try {
     const geocoder = new window.google.maps.Geocoder();
     const response = await geocoder.geocode({ location: { lat, lng } });
     if (response.results && response.results.length > 0) {
+      // Look for a park, point_of_interest, or neighborhood first
       const parkResult = response.results.find((r) =>
         r.types.some((t) => ['park', 'point_of_interest', 'natural_feature', 'campground', 'tourist_attraction'].includes(t))
       );
       if (parkResult) return parkResult.formatted_address.split(',')[0];
+      // Fall back to street name + neighborhood/city (strip house numbers for privacy)
+      // Find the street-level result
       const streetResult = response.results.find((r) =>
         r.types.some((t) => ['street_address', 'route', 'premise'].includes(t))
       );
+      // Find the neighborhood or city for the second half
       const neighborhoodResult = response.results.find((r) =>
         r.types.some((t) => ['neighborhood', 'sublocality', 'sublocality_level_1'].includes(t))
       );
@@ -45,14 +50,20 @@ async function reverseGeocode(lat, lng) {
         : localityResult
           ? localityResult.formatted_address.split(',')[0]
           : '';
+
       if (streetResult) {
+        // Strip house numbers: remove leading digits/spaces from the address
         const addressParts = streetResult.formatted_address.split(',');
         const streetName = addressParts[0].replace(/^\d+\s*/, '').trim();
+        // Grab the city from the same address string (usually the second part)
         const cityFromAddress = addressParts.length >= 2 ? addressParts[1].trim() : '';
+        // Prefer the neighborhood/locality lookup, but fall back to the address string
         const area = areaName || cityFromAddress;
         return area ? streetName + ', ' + area : streetName;
       }
+      // If no street result, just use the area name
       if (areaName) return areaName;
+      // Absolute last resort: city from the first result
       const parts = response.results[0].formatted_address.split(',');
       return parts.length >= 2 ? parts[parts.length - 2].trim() : parts[0];
     }
@@ -76,16 +87,17 @@ export default function MapView() {
   const autoCheckoutRef = useRef(null);
   const myDog = dogs[0];
 
+  // NEW: Track whether we have a real GPS position (not the SF default)
   const [hasLocation, setHasLocation] = useState(false);
   const [locationError, setLocationError] = useState(null);
   const [gpsCoords, setGpsCoords] = useState(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
-  const [refreshingLocation, setRefreshingLocation] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
   });
 
+  // Request GPS on mount
   useEffect(() => {
     if (!navigator.geolocation) {
       setLocationError('Your browser does not support location services.');
@@ -100,6 +112,7 @@ export default function MapView() {
         setLocationError(null);
       },
       (err) => {
+        // err.code 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
         if (err.code === 1) {
           setLocationError('Location access was denied. To check in, please enable location services in your browser settings and reload the page.');
         } else {
@@ -133,48 +146,21 @@ export default function MapView() {
     return () => { if (autoCheckoutRef.current) clearTimeout(autoCheckoutRef.current); };
   }, [myDog?.checkedIn, myDog?.checkedInTime]);
 
-  const onMapLoad = useCallback((mapInstance) => {
-    setMap(mapInstance);
-    mapRef.current = mapInstance;
-  }, []);
+  const onMapLoad = useCallback((mapInstance) => setMap(mapInstance), []);
 
-  const mapRef = useRef(null);
-
-  function handleRefreshLocation() {
-    if (!navigator.geolocation || refreshingLocation) return;
-    setRefreshingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setGpsCoords(coords);
-        setCenter(coords);
-        setHasLocation(true);
-        setLocationError(null);
-        const m = mapRef.current || map;
-        if (m) {
-          m.panTo(coords);
-          m.setZoom(15);
-        }
-        setTimeout(() => setRefreshingLocation(false), 800);
-      },
-      (err) => {
-        setRefreshingLocation(false);
-        alert('Could not get your location. Make sure location services are enabled.');
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }
-
+  // NEW: When user taps "We're Here!", get fresh GPS and auto-detect location name
   async function handleOpenCheckIn() {
     setLocationError(null);
     setDetectingLocation(true);
     setShowCheckInPanel(true);
     setLocationName('');
+
     if (!navigator.geolocation) {
       setLocationError('Your browser does not support location services.');
       setDetectingLocation(false);
       return;
     }
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -182,6 +168,8 @@ export default function MapView() {
         setCenter(coords);
         setHasLocation(true);
         setLocationError(null);
+
+        // Auto-detect the place name
         if (window.google && window.google.maps) {
           const placeName = await reverseGeocode(coords.lat, coords.lng);
           if (placeName) setLocationName(placeName);
@@ -221,18 +209,19 @@ export default function MapView() {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in">
-          <PawLogo size={60} className="mx-auto mb-3" animate />
+          <PawLogo size={60} className="mx-auto mb-3" />
           <p style={{ color: 'var(--gs-green)', fontWeight: 600 }}>Loading map...</p>
         </div>
       </div>
     );
   }
 
+  // Show a full-screen message if location was denied (instead of a confusing SF map)
   if (locationError && !hasLocation) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center p-6" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in max-w-sm">
-          <PawLogo size={72} className="mx-auto mb-4" animate />
+          <PawLogo size={72} className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff needs your location</h1>
           <p className="mb-6" style={{ color: 'var(--gs-text-light)', lineHeight: 1.6 }}>
             GoSniff uses your location to show you nearby dogs and let you check in at parks. Without it, we cannot place you on the map.
@@ -267,7 +256,7 @@ export default function MapView() {
               style={{ border: dog.id === myDog?.id ? '3px solid var(--gs-warm)' : '3px solid var(--gs-green)' }}>
               {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} />) : (
                 <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}>
-                  <PawLogo size={24} />
+                  <PawLogo size={24} color="var(--gs-green-mid)" />
                 </div>
               )}
             </div>
@@ -275,48 +264,21 @@ export default function MapView() {
         ))}
       </GoogleMap>
 
-      {/* HEADER BAR */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 16px',
-        background: 'rgba(255,255,255,0.95)',
-        zIndex: 9999,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-3 pb-2"
+        style={{ background: 'linear-gradient(to bottom, rgba(233,245,240,0.95), rgba(233,245,240,0))', pointerEvents: 'none' }}>
+        <div className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
           <PawLogo size={32} />
-          <span style={{ fontFamily: "'Fredoka', sans-serif", color: '#1a1a1a', fontSize: '1.25rem', fontWeight: 700 }}>GoSniff</span>
+          <span className="text-xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>GoSniff</span>
         </div>
-        <button onClick={() => setShowMenu(!showMenu)} style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '4px',
-          background: '#ffffff',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e5e5',
-          cursor: 'pointer',
-        }}>
-          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
-          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
-          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+        <button onClick={() => setShowMenu(!showMenu)} className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ background: 'var(--gs-white)', boxShadow: '0 2px 8px var(--gs-shadow)', pointerEvents: 'auto' }}>
+          {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full rounded-full object-cover" />) : (<PawLogo size={20} color="var(--gs-green)" />)}
         </button>
       </div>
 
-      {/* DROPDOWN MENU */}
       {showMenu && (
-        <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10000, minWidth: '220px' }}>
-          {/* Dog profile header */}
-          <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
+        <div className="absolute top-16 right-4 gs-card fade-in z-50" style={{ minWidth: '200px' }}>
+          <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-mint)' }}>
             <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
               {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full object-cover" />) : (
                 <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={16} /></div>
@@ -327,23 +289,8 @@ export default function MapView() {
               <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
             </div>
           </div>
-          {/* Menu items */}
-          <button onClick={() => { setShowEditProfile(true); setShowMenu(false); }}
-            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
-            style={{ color: 'var(--gs-forest)' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Edit Profile
-          </button>
-          <button onClick={() => { signOut(); setShowMenu(false); }}
-            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
-            style={{ color: 'var(--gs-coral)' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M10.5 11.5L14 8M14 8L10.5 4.5M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Sign Out
-          </button>
+          <button onClick={() => { setShowEditProfile(true); setShowMenu(false); }} className="w-full text-left text-sm font-semibold py-2 px-1" style={{ color: 'var(--gs-forest)' }}>Edit Profile</button>
+          <button onClick={() => { signOut(); setShowMenu(false); }} className="w-full text-left text-sm font-semibold py-2 px-1" style={{ color: 'var(--gs-coral)' }}>Sign Out</button>
         </div>
       )}
 
@@ -351,72 +298,37 @@ export default function MapView() {
         <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
       )}
 
-      {/* REFRESH LOCATION BUTTON */}
-      <button
-        onClick={handleRefreshLocation}
-        disabled={refreshingLocation}
-        style={{
-          position: 'absolute',
-          bottom: myDog?.checkedIn ? '120px' : showCheckInPanel ? '260px' : '100px',
-          right: '16px',
-          padding: '10px 14px',
-          borderRadius: '24px',
-          background: refreshingLocation ? 'var(--gs-teal-light)' : '#ffffff',
-          border: '1.5px solid var(--gs-gray-200)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          cursor: refreshingLocation ? 'wait' : 'pointer',
-          zIndex: 10,
-          transition: 'background 0.2s, bottom 0.3s',
-          pointerEvents: 'auto',
-        }}
-      >
-        <svg
-          width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-          style={{
-            animation: refreshingLocation ? 'pulse-logo 1s ease-in-out infinite' : 'none',
-            flexShrink: 0,
-          }}
-        >
-          <circle cx="12" cy="12" r="3" stroke="var(--gs-teal)" strokeWidth="2" />
-          <circle cx="12" cy="12" r="8" stroke="var(--gs-teal)" strokeWidth="1.5" fill="none" />
-          <line x1="12" y1="0" x2="12" y2="4" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="12" y1="20" x2="12" y2="24" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="0" y1="12" x2="4" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="20" y1="12" x2="24" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-teal)', whiteSpace: 'nowrap' }}>
-          {refreshingLocation ? 'Finding you...' : 'Refresh My Location'}
-        </span>
-      </button>
-
-      {/* BOTTOM PANEL */}
       <div className="absolute bottom-0 left-0 right-0 p-4" style={{ pointerEvents: 'none' }}>
         {myDog?.checkedIn && (
           <div className="gs-card mb-3 flex items-center justify-between fade-in" style={{ pointerEvents: 'auto' }}>
             <div>
               <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog.name} is at {myDog.checkedInAt}</p>
-              <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>Checked in — visible to nearby dogs</p>
+              <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>Checked in - Visible to nearby dogs</p>
             </div>
             <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
           </div>
         )}
 
+        {/* UPDATED CHECK-IN PANEL */}
         {showCheckInPanel && !myDog?.checkedIn && (
           <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
+
+            {/* Show error if GPS is denied or unavailable */}
             {locationError && (
               <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--gs-cream)', border: '1px solid var(--gs-warm)' }}>
                 <p className="text-sm font-semibold mb-1" style={{ color: 'var(--gs-coral)' }}>Location needed</p>
                 <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5 }}>{locationError}</p>
               </div>
             )}
+
+            {/* Show loading while detecting location */}
             {detectingLocation && !locationError && (
               <div className="mb-3 text-center">
                 <p className="text-sm font-semibold" style={{ color: 'var(--gs-green)' }}>Sniffing out your location...</p>
               </div>
             )}
+
+            {/* Show location confirmation when we have GPS */}
             {hasLocation && !detectingLocation && !locationError && (
               <>
                 <h3 className="font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
@@ -436,6 +348,7 @@ export default function MapView() {
                 </p>
               </>
             )}
+
             <div className="flex gap-2">
               <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); }}>Cancel</button>
               <button
@@ -457,21 +370,20 @@ export default function MapView() {
         )}
       </div>
 
-      {/* DOG PROFILE SHEET */}
       {selectedDog && (
         <div className="absolute inset-0 z-40 flex items-end" onClick={() => setSelectedDog(null)}>
           <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.3)' }} />
           <div className="relative w-full gs-card slide-up" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, maxHeight: '60vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setSelectedDog(null)} className="absolute top-3 right-4 text-2xl" style={{ color: 'var(--gs-text-light)' }}>×</button>
+            <button onClick={() => setSelectedDog(null)} className="absolute top-3 right-4 text-2xl" style={{ color: 'var(--gs-text-light)' }}>x</button>
             <div className="flex items-start gap-4">
               <div className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0" style={{ border: '3px solid var(--gs-green)' }}>
                 {selectedDog.photoURL ? (<img src={selectedDog.photoURL} alt={selectedDog.name} className="w-full h-full object-cover" />) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={32} /></div>
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={32} color="var(--gs-green-mid)" /></div>
                 )}
               </div>
               <div className="flex-1 pt-1">
                 <h3 className="text-xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>{selectedDog.name}</h3>
-                <p className="text-sm" style={{ color: 'var(--gs-text-light)' }}>{selectedDog.breed} · {selectedDog.gender} · {selectedDog.age || 'Age unknown'}</p>
+                <p className="text-sm" style={{ color: 'var(--gs-text-light)' }}>{selectedDog.breed} - {selectedDog.gender} - {selectedDog.age || 'Age unknown'}</p>
                 {selectedDog.checkedInAt && (<p className="text-sm font-semibold mt-1" style={{ color: 'var(--gs-green)' }}>At {selectedDog.checkedInAt}</p>)}
               </div>
             </div>
@@ -491,7 +403,7 @@ export default function MapView() {
         </div>
       )}
 
-      {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setShowMenu(false)} />)}
+      {showMenu && (<div className="absolute inset-0 z-30" onClick={() => setShowMenu(false)} />)}
     </div>
   );
 }
