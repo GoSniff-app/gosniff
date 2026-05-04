@@ -133,7 +133,12 @@ export default function MapView() {
     return () => { if (autoCheckoutRef.current) clearTimeout(autoCheckoutRef.current); };
   }, [myDog?.checkedIn, myDog?.checkedInTime]);
 
-  const onMapLoad = useCallback((mapInstance) => setMap(mapInstance), []);
+  const onMapLoad = useCallback((mapInstance) => {
+    setMap(mapInstance);
+    mapRef.current = mapInstance;
+  }, []);
+
+  const mapRef = useRef(null);
 
   function handleRefreshLocation() {
     if (!navigator.geolocation || refreshingLocation) return;
@@ -145,11 +150,16 @@ export default function MapView() {
         setCenter(coords);
         setHasLocation(true);
         setLocationError(null);
-        if (map) map.panTo(coords);
+        const m = mapRef.current || map;
+        if (m) {
+          m.panTo(coords);
+          m.setZoom(15);
+        }
         setTimeout(() => setRefreshingLocation(false), 800);
       },
-      () => {
+      (err) => {
         setRefreshingLocation(false);
+        alert('Could not get your location. Make sure location services are enabled.');
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
