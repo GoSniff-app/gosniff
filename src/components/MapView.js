@@ -363,7 +363,12 @@ export default function MapView() {
               <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog.name} is at {myDog.checkedInAt}</p>
               <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>Checked in — visible to nearby dogs</p>
             </div>
-            <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleRefreshLocation} disabled={refreshingLocation} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>
+                {refreshingLocation ? 'Finding...' : 'Refresh'}
+              </button>
+              <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
+            </div>
           </div>
         )}
 
