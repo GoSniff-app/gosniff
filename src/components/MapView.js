@@ -356,7 +356,7 @@ export default function MapView() {
       )}
 
       {/* BOTTOM PANEL */}
-      <div className="fixed bottom-0 left-0 right-0 p-4" style={{ pointerEvents: 'none', zIndex: 9999 }}>
+      <div className="bottom-0 left-0 right-0 p-4" style={{ pointerEvents: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999 }}>
         {myDog?.checkedIn && (
           <div className="gs-card mb-3 flex items-center justify-between fade-in" style={{ pointerEvents: 'auto' }}>
             <div>
