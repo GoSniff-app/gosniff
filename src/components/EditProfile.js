@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import PawLogo from './PawLogo';
 
@@ -49,7 +49,6 @@ function compressImage(file, maxWidth = 400, quality = 0.7) {
 
 export default function EditProfile({ dog, onClose }) {
   const { updateDog, deleteAccount } = useAuth();
-  const [ready, setReady] = useState(false);
   const [dogName, setDogName] = useState(dog.name || '');
   const [dogPhotoPreview, setDogPhotoPreview] = useState(dog.photoURL || null);
   const [breed, setBreed] = useState(dog.breed || '');
@@ -65,11 +64,6 @@ export default function EditProfile({ dog, onClose }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setReady(true), 400);
-    return () => clearTimeout(timer);
-  }, []);
 
   async function handlePhotoSelect(e) {
     const file = e.target.files[0];
@@ -116,25 +110,23 @@ export default function EditProfile({ dog, onClose }) {
     ? BREEDS.filter((b) => b.toLowerCase().includes(breedSearch.toLowerCase()))
     : BREEDS;
 
-  function handleBackdropClick() {
-    if (ready) onClose();
-  }
-
   if (saved) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)', zIndex: 99999 }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
         <div className="gs-card text-center bounce-in" style={{ maxWidth: '320px' }}>
           <PawLogo size={48} className="mx-auto mb-3" />
           <h2 className="text-xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Updated!</h2>
-          <p style={{ color: 'var(--gs-text-light)' }}>{dogName}&apos;s profile has been saved.</p>
+          <p style={{ color: 'var(--gs-text-light)' }}>{dogName}'s profile has been saved.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 flex items-end sm:items-center justify-center" style={{ zIndex: 99999 }}>
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={handleBackdropClick} />
+    /* FIX: Removed onClick={onClose} from this outer wrapper — it was catching stray events and closing the modal instantly */
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      {/* FIX: Only this backdrop div closes the modal now (deliberate tap on dark area) */}
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
       <div
         className="relative w-full sm:max-w-md gs-card slide-up"
         style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, maxHeight: '85vh', overflow: 'auto' }}
@@ -142,11 +134,12 @@ export default function EditProfile({ dog, onClose }) {
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
-            Edit {dog.name}&apos;s Profile
+            Edit {dog.name}'s Profile
           </h2>
-          <button onClick={onClose} className="text-2xl" style={{ color: 'var(--gs-text-light)' }}>x</button>
+          <button onClick={onClose} className="text-2xl" style={{ color: 'var(--gs-text-light)' }}>×</button>
         </div>
 
+        {/* Photo */}
         <div className="flex flex-col items-center gap-3 mb-5">
           {dogPhotoPreview ? (
             <div className="w-24 h-24 rounded-full overflow-hidden" style={{ border: '3px solid var(--gs-green)' }}>
@@ -163,11 +156,13 @@ export default function EditProfile({ dog, onClose }) {
           </label>
         </div>
 
+        {/* Name */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Name</label>
           <input type="text" className="gs-input" value={dogName} onChange={(e) => setDogName(e.target.value)} />
         </div>
 
+        {/* Breed */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Breed</label>
           <input type="text" className="gs-input mb-2" placeholder="Search breeds..." value={breedSearch} onChange={(e) => setBreedSearch(e.target.value)} />
@@ -178,6 +173,7 @@ export default function EditProfile({ dog, onClose }) {
           </div>
         </div>
 
+        {/* Size */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Size</label>
           <div className="flex flex-wrap gap-2">
@@ -187,6 +183,7 @@ export default function EditProfile({ dog, onClose }) {
           </div>
         </div>
 
+        {/* Personality (multi-select, max 3) */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Personality (pick up to 3)</label>
           <div className="flex flex-wrap gap-2">
@@ -201,6 +198,7 @@ export default function EditProfile({ dog, onClose }) {
           {energy.length === 3 && <p className="text-xs mt-1" style={{ color: 'var(--gs-text-light)' }}>Max 3 selected</p>}
         </div>
 
+        {/* Gender */}
         <div className="mb-4">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Gender</label>
           <div className="flex gap-2">
@@ -210,11 +208,13 @@ export default function EditProfile({ dog, onClose }) {
           </div>
         </div>
 
+        {/* Age */}
         <div className="mb-5">
           <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Age</label>
           <input type="text" className="gs-input" placeholder="e.g. 3 years, 6 months, puppy..." value={age} onChange={(e) => setAge(e.target.value)} />
         </div>
 
+        {/* Save button */}
         <button
           className="btn-primary w-full mb-4"
           disabled={!dogName.trim() || !breed || !size || energy.length === 0 || !gender || saving}
@@ -223,6 +223,7 @@ export default function EditProfile({ dog, onClose }) {
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
 
+        {/* Delete section */}
         <div className="pt-4" style={{ borderTop: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
           {!showDeleteConfirm ? (
             <button
@@ -235,7 +236,7 @@ export default function EditProfile({ dog, onClose }) {
           ) : (
             <div className="fade-in">
               <p className="text-sm font-semibold mb-2" style={{ color: 'var(--gs-coral)' }}>
-                This will permanently delete {dog.name}&apos;s profile and your account. This cannot be undone.
+                This will permanently delete {dog.name}'s profile and your account. This cannot be undone.
               </p>
               <p className="text-sm mb-2" style={{ color: 'var(--gs-text-light)' }}>
                 Type <strong>{dog.name}</strong> to confirm:

@@ -255,7 +255,7 @@ export default function MapView() {
         justifyContent: 'space-between',
         padding: '12px 16px',
         background: 'rgba(255,255,255,0.95)',
-        zIndex: 10001,
+        zIndex: 9999,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <PawLogo size={32} />
@@ -283,50 +283,45 @@ export default function MapView() {
 
       {/* DROPDOWN MENU */}
       {showMenu && (
-        <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 10002, background: 'transparent' }}
-            onClick={() => setShowMenu(false)} />
-          <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10003, minWidth: '240px', padding: '16px' }}
-            onClick={(e) => e.stopPropagation()}>
-            {/* Dog profile header */}
-            <div className="flex items-center gap-3 mb-4 pb-4" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
-              <div className="w-12 h-12 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
-                {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full object-cover" />) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={20} /></div>
-                )}
-              </div>
-              <div>
-                <p className="font-bold" style={{ color: 'var(--gs-forest)', fontSize: '1rem' }}>{myDog?.name}</p>
-                <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
-              </div>
+        <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10000, minWidth: '220px' }}>
+          {/* Dog profile header */}
+          <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
+            <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
+              {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full object-cover" />) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={16} /></div>
+              )}
             </div>
-            {/* Menu items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button
-                className="btn-secondary w-full flex items-center justify-center gap-2"
-                style={{ padding: '14px 20px', fontSize: '1rem', fontWeight: 600 }}
-                onClick={() => { setShowMenu(false); setTimeout(() => setShowEditProfile(true), 500); }}>
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Edit Profile
-              </button>
-              <button
-                className="w-full flex items-center justify-center gap-2"
-                style={{ padding: '14px 20px', fontSize: '1rem', fontWeight: 600, borderRadius: '14px', border: '1.5px solid var(--gs-coral)', background: 'var(--gs-white, #fff)', color: 'var(--gs-coral)', cursor: 'pointer' }}
-                onClick={() => { signOut(); setShowMenu(false); }}>
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M10.5 11.5L14 8M14 8L10.5 4.5M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Sign Out
-              </button>
+            <div>
+              <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog?.name}</p>
+              <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
             </div>
           </div>
-        </>
+          {/* Menu items */}
+          {/* FIX: stopPropagation prevents backdrop click, 50ms delay lets menu unmount before modal renders */}
+          <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowEditProfile(true), 50); }}
+            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
+            style={{ color: 'var(--gs-forest)' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Edit Profile
+          </button>
+          <button onClick={() => { signOut(); setShowMenu(false); }}
+            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
+            style={{ color: 'var(--gs-coral)' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M10.5 11.5L14 8M14 8L10.5 4.5M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Sign Out
+          </button>
+        </div>
       )}
 
+      {/* FIX: Wrapper div at z-index 10001 ensures EditProfile renders above everything */}
       {showEditProfile && myDog && (
-        <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10001 }}>
+          <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
+        </div>
       )}
 
       {/* BOTTOM PANEL */}
@@ -428,6 +423,7 @@ export default function MapView() {
         </div>
       )}
 
+      {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setShowMenu(false)} />)}
     </div>
   );
 }
