@@ -220,6 +220,32 @@ export default function MapView() {
     catch (err) { console.error('Check-out failed:', err); }
   }
 
+  // Handle clicks anywhere in the map area — detect if a dog pin was under the click
+  // Uses the wrapper div instead of GoogleMap's onClick because Google Maps swallows
+  // click events at the overlay layer before they reach the map's onClick handler
+  useEffect(() => {
+    const wrapper = mapWrapperRef.current;
+    if (!wrapper) return;
+
+    function handlePinClick(e) {
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      for (const el of elements) {
+        const pinEl = el.closest('[data-dog-id]');
+        if (pinEl) {
+          const dogId = pinEl.getAttribute('data-dog-id');
+          const dog = nearbyDogsRef.current.find((d) => d.id === dogId);
+          if (dog) {
+            setSelectedDog(dog);
+            return;
+          }
+        }
+      }
+    }
+
+    wrapper.addEventListener('click', handlePinClick, true);
+    return () => wrapper.removeEventListener('click', handlePinClick, true);
+  }, []);
+
   if (!isLoaded) {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
@@ -259,33 +285,6 @@ export default function MapView() {
       </div>
     );
   }
-
-  // Handle clicks anywhere in the map area — detect if a dog pin was under the click
-  // Uses the wrapper div instead of GoogleMap's onClick because Google Maps swallows
-  // click events at the overlay layer before they reach the map's onClick handler
-
-  useEffect(() => {
-    const wrapper = mapWrapperRef.current;
-    if (!wrapper) return;
-
-    function handlePinClick(e) {
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      for (const el of elements) {
-        const pinEl = el.closest('[data-dog-id]');
-        if (pinEl) {
-          const dogId = pinEl.getAttribute('data-dog-id');
-          const dog = nearbyDogsRef.current.find((d) => d.id === dogId);
-          if (dog) {
-            setSelectedDog(dog);
-            return;
-          }
-        }
-      }
-    }
-
-    wrapper.addEventListener('click', handlePinClick, true);
-    return () => wrapper.removeEventListener('click', handlePinClick, true);
-  }, []);
 
   return (
     <div ref={mapWrapperRef} className="h-screen w-screen relative overflow-hidden">
