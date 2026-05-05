@@ -261,6 +261,8 @@ export default function MapView() {
   // Uses the wrapper div instead of GoogleMap's onClick because Google Maps swallows
   // click events at the overlay layer before they reach the map's onClick handler
   const mapWrapperRef = useRef(null);
+  const nearbyDogsRef = useRef(nearbyDogs);
+  nearbyDogsRef.current = nearbyDogs;
 
   useEffect(() => {
     const wrapper = mapWrapperRef.current;
@@ -272,10 +274,11 @@ export default function MapView() {
         const pinEl = el.closest('[data-dog-id]');
         if (pinEl) {
           const dogId = pinEl.getAttribute('data-dog-id');
-          // Store the ID so the render cycle can pick it up
-          wrapper.setAttribute('data-clicked-dog', dogId);
-          wrapper.dispatchEvent(new CustomEvent('dog-pin-click', { detail: { dogId } }));
-          return;
+          const dog = nearbyDogsRef.current.find((d) => d.id === dogId);
+          if (dog) {
+            setSelectedDog(dog);
+            return;
+          }
         }
       }
     }
@@ -283,23 +286,6 @@ export default function MapView() {
     wrapper.addEventListener('click', handlePinClick, true);
     return () => wrapper.removeEventListener('click', handlePinClick, true);
   }, []);
-
-  // Listen for the custom event and find the dog
-  useEffect(() => {
-    const wrapper = mapWrapperRef.current;
-    if (!wrapper) return;
-
-    function onDogPinClick(e) {
-      const dogId = e.detail?.dogId;
-      if (dogId) {
-        const dog = nearbyDogs.find((d) => d.id === dogId);
-        if (dog) setSelectedDog(dog);
-      }
-    }
-
-    wrapper.addEventListener('dog-pin-click', onDogPinClick);
-    return () => wrapper.removeEventListener('dog-pin-click', onDogPinClick);
-  }, [nearbyDogs]);
 
   return (
     <div ref={mapWrapperRef} className="h-screen w-screen relative overflow-hidden">
