@@ -74,6 +74,9 @@ export default function MapView() {
   const [locationName, setLocationName] = useState('');
   const [showCheckInPanel, setShowCheckInPanel] = useState(false);
   const autoCheckoutRef = useRef(null);
+  const mapWrapperRef = useRef(null);
+  const nearbyDogsRef = useRef(nearbyDogs);
+  nearbyDogsRef.current = nearbyDogs;
   const myDog = dogs[0];
 
   const [hasLocation, setHasLocation] = useState(false);
@@ -260,9 +263,6 @@ export default function MapView() {
   // Handle clicks anywhere in the map area — detect if a dog pin was under the click
   // Uses the wrapper div instead of GoogleMap's onClick because Google Maps swallows
   // click events at the overlay layer before they reach the map's onClick handler
-  const mapWrapperRef = useRef(null);
-  const nearbyDogsRef = useRef(nearbyDogs);
-  nearbyDogsRef.current = nearbyDogs;
 
   useEffect(() => {
     const wrapper = mapWrapperRef.current;
