@@ -257,15 +257,36 @@ export default function MapView() {
     );
   }
 
+  // Handle clicks on the map — detect if a dog pin was under the click point
+  function handleMapClick(e) {
+    // Get the actual DOM coordinates from the Google Maps click event
+    const domEvent = e.domEvent;
+    if (!domEvent) return;
+    const x = domEvent.clientX;
+    const y = domEvent.clientY;
+    const elements = document.elementsFromPoint(x, y);
+    for (const el of elements) {
+      const pinEl = el.closest('[data-dog-id]');
+      if (pinEl) {
+        const dogId = pinEl.getAttribute('data-dog-id');
+        const dog = nearbyDogs.find((d) => d.id === dogId);
+        if (dog) {
+          setSelectedDog(dog);
+          return;
+        }
+      }
+    }
+  }
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
+        onClick={handleMapClick}
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
         {nearbyDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
-              onClick={() => setSelectedDog(dog)}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedDog(dog); }}
+              data-dog-id={dog.id}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -273,14 +294,12 @@ export default function MapView() {
                 cursor: 'pointer',
                 transform: 'translate(-50%, -50%)',
                 padding: '8px',
-                WebkitTapHighlightColor: 'transparent',
               }}
             >
               <div className="dog-pin bounce-in" style={{
                 width: '56px',
                 height: '56px',
                 border: dog.id === myDog?.id ? '3px solid var(--gs-warm)' : '3px solid var(--gs-green)',
-                pointerEvents: 'none',
               }}>
                 {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} />) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}>
@@ -300,7 +319,6 @@ export default function MapView() {
                 maxWidth: '80px',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                pointerEvents: 'none',
               }}>{dog.name}</span>
             </div>
           </OverlayViewF>
