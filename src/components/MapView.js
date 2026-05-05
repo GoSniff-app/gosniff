@@ -257,31 +257,53 @@ export default function MapView() {
     );
   }
 
-  // Handle clicks on the map — detect if a dog pin was under the click point
-  function handleMapClick(e) {
-    // Get the actual DOM coordinates from the Google Maps click event
-    const domEvent = e.domEvent;
-    if (!domEvent) return;
-    const x = domEvent.clientX;
-    const y = domEvent.clientY;
-    const elements = document.elementsFromPoint(x, y);
-    for (const el of elements) {
-      const pinEl = el.closest('[data-dog-id]');
-      if (pinEl) {
-        const dogId = pinEl.getAttribute('data-dog-id');
-        const dog = nearbyDogs.find((d) => d.id === dogId);
-        if (dog) {
-          setSelectedDog(dog);
+  // Handle clicks anywhere in the map area — detect if a dog pin was under the click
+  // Uses the wrapper div instead of GoogleMap's onClick because Google Maps swallows
+  // click events at the overlay layer before they reach the map's onClick handler
+  const mapWrapperRef = useRef(null);
+
+  useEffect(() => {
+    const wrapper = mapWrapperRef.current;
+    if (!wrapper) return;
+
+    function handlePinClick(e) {
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      for (const el of elements) {
+        const pinEl = el.closest('[data-dog-id]');
+        if (pinEl) {
+          const dogId = pinEl.getAttribute('data-dog-id');
+          // Store the ID so the render cycle can pick it up
+          wrapper.setAttribute('data-clicked-dog', dogId);
+          wrapper.dispatchEvent(new CustomEvent('dog-pin-click', { detail: { dogId } }));
           return;
         }
       }
     }
-  }
+
+    wrapper.addEventListener('click', handlePinClick, true);
+    return () => wrapper.removeEventListener('click', handlePinClick, true);
+  }, []);
+
+  // Listen for the custom event and find the dog
+  useEffect(() => {
+    const wrapper = mapWrapperRef.current;
+    if (!wrapper) return;
+
+    function onDogPinClick(e) {
+      const dogId = e.detail?.dogId;
+      if (dogId) {
+        const dog = nearbyDogs.find((d) => d.id === dogId);
+        if (dog) setSelectedDog(dog);
+      }
+    }
+
+    wrapper.addEventListener('dog-pin-click', onDogPinClick);
+    return () => wrapper.removeEventListener('dog-pin-click', onDogPinClick);
+  }, [nearbyDogs]);
 
   return (
-    <div className="h-screen w-screen relative overflow-hidden">
+    <div ref={mapWrapperRef} className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        onClick={handleMapClick}
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
         {nearbyDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
