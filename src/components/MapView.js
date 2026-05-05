@@ -263,13 +263,45 @@ export default function MapView() {
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
         {nearbyDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
-            <div className="dog-pin bounce-in" onClick={() => setSelectedDog(dog)} title={dog.name + ' at ' + dog.checkedInAt}
-              style={{ border: dog.id === myDog?.id ? '3px solid var(--gs-warm)' : '3px solid var(--gs-green)' }}>
-              {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} />) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}>
-                  <PawLogo size={24} />
-                </div>
-              )}
+            <div
+              onClick={() => setSelectedDog(dog)}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedDog(dog); }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer',
+                transform: 'translate(-50%, -50%)',
+                padding: '8px',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <div className="dog-pin bounce-in" style={{
+                width: '56px',
+                height: '56px',
+                border: dog.id === myDog?.id ? '3px solid var(--gs-warm)' : '3px solid var(--gs-green)',
+                pointerEvents: 'none',
+              }}>
+                {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} />) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}>
+                    <PawLogo size={28} />
+                  </div>
+                )}
+              </div>
+              <span style={{
+                marginTop: '2px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: 'var(--gs-forest)',
+                background: 'rgba(255,255,255,0.9)',
+                padding: '1px 6px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                maxWidth: '80px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                pointerEvents: 'none',
+              }}>{dog.name}</span>
             </div>
           </OverlayViewF>
         ))}
@@ -460,7 +492,7 @@ export default function MapView() {
 
       {/* DOG PROFILE SHEET */}
       {selectedDog && (
-        <div className="absolute inset-0 z-40 flex items-end" onClick={() => setSelectedDog(null)}>
+        <div className="fixed inset-0 flex items-end" style={{ zIndex: 100000 }} onClick={() => setSelectedDog(null)}>
           <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.3)' }} />
           <div className="relative w-full gs-card slide-up" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, maxHeight: '60vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setSelectedDog(null)} className="absolute top-3 right-4 text-2xl" style={{ color: 'var(--gs-text-light)' }}>×</button>
