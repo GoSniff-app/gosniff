@@ -8,6 +8,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   deleteUser,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import {
   doc,
@@ -165,9 +166,13 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function resetPassword(email) {
+    return sendPasswordResetEmail(auth, email);
+  }
+
   const value = {
     user, dogs, loading, dogsLoaded,
-    signUp, signIn, signOut,
+    signUp, signIn, signOut, resetPassword,
     checkIn, checkOut, updateDog, deleteAccount,
   };
 

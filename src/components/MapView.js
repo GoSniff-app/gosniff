@@ -20,7 +20,7 @@ const mapStyles = [
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 const defaultCenter = { lat: 37.7749, lng: -122.4194 };
-const AUTO_CHECKOUT_MS = 90 * 60 * 1000;
+const AUTO_CHECKOUT_MS = 60 * 60 * 1000;
 
 async function reverseGeocode(lat, lng) {
   try {
@@ -74,9 +74,6 @@ export default function MapView() {
   const [locationName, setLocationName] = useState('');
   const [showCheckInPanel, setShowCheckInPanel] = useState(false);
   const autoCheckoutRef = useRef(null);
-  const mapWrapperRef = useRef(null);
-  const nearbyDogsRef = useRef(nearbyDogs);
-  nearbyDogsRef.current = nearbyDogs;
   const myDog = dogs[0];
 
   const [hasLocation, setHasLocation] = useState(false);
@@ -220,32 +217,6 @@ export default function MapView() {
     catch (err) { console.error('Check-out failed:', err); }
   }
 
-  // Handle clicks anywhere in the map area — detect if a dog pin was under the click
-  // Uses the wrapper div instead of GoogleMap's onClick because Google Maps swallows
-  // click events at the overlay layer before they reach the map's onClick handler
-  useEffect(() => {
-    const wrapper = mapWrapperRef.current;
-    if (!wrapper) return;
-
-    function handlePinClick(e) {
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      for (const el of elements) {
-        const pinEl = el.closest('[data-dog-id]');
-        if (pinEl) {
-          const dogId = pinEl.getAttribute('data-dog-id');
-          const dog = nearbyDogsRef.current.find((d) => d.id === dogId);
-          if (dog) {
-            setSelectedDog(dog);
-            return;
-          }
-        }
-      }
-    }
-
-    wrapper.addEventListener('click', handlePinClick, true);
-    return () => wrapper.removeEventListener('click', handlePinClick, true);
-  }, []);
-
   if (!isLoaded) {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
@@ -287,46 +258,29 @@ export default function MapView() {
   }
 
   return (
-    <div ref={mapWrapperRef} className="h-screen w-screen relative overflow-hidden">
+    <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
         {nearbyDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
-              data-dog-id={dog.id}
+              className="dog-pin bounce-in"
+              title={dog.name + ' at ' + dog.checkedInAt}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                cursor: 'pointer',
-                transform: 'translate(-50%, -50%)',
-                padding: '8px',
-              }}
-            >
-              <div className="dog-pin bounce-in" style={{
-                width: '56px',
-                height: '56px',
                 border: dog.id === myDog?.id ? '3px solid var(--gs-warm)' : '3px solid var(--gs-green)',
-              }}>
-                {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} />) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}>
-                    <PawLogo size={28} />
-                  </div>
-                )}
-              </div>
-              <span style={{
-                marginTop: '2px',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                color: 'var(--gs-forest)',
-                background: 'rgba(255,255,255,0.9)',
-                padding: '1px 6px',
-                borderRadius: '6px',
-                whiteSpace: 'nowrap',
-                maxWidth: '80px',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>{dog.name}</span>
+                position: 'relative',
+                zIndex: 1,
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+              }}
+              onClick={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
+              onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setSelectedDog(dog); }}
+            >
+              {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} draggable={false} style={{ pointerEvents: 'none' }} />) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', pointerEvents: 'none' }}>
+                  <PawLogo size={24} />
+                </div>
+              )}
             </div>
           </OverlayViewF>
         ))}
@@ -343,7 +297,7 @@ export default function MapView() {
         justifyContent: 'space-between',
         padding: '12px 16px',
         background: 'rgba(255,255,255,0.95)',
-        zIndex: 9999,
+        zIndex: 100,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <PawLogo size={32} />
@@ -371,7 +325,7 @@ export default function MapView() {
 
       {/* DROPDOWN MENU */}
       {showMenu && (
-        <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 10000, minWidth: '220px' }}>
+        <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 300, minWidth: '220px', padding: '16px' }}>
           {/* Dog profile header */}
           <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
             <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
@@ -387,142 +341,166 @@ export default function MapView() {
           {/* Menu items */}
           {/* FIX: stopPropagation prevents backdrop click, 50ms delay lets menu unmount before modal renders */}
           <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowEditProfile(true), 50); }}
-            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
-            style={{ color: 'var(--gs-forest)' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            className="w-full text-left text-sm font-semibold flex items-center gap-3"
+            style={{
+              color: 'var(--gs-forest)',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              transition: 'background 0.15s',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-gray-100, #f5f5f5)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 1.5L16.5 5L5.5 16H2V12.5L13 1.5Z" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             Edit Profile
           </button>
           <button onClick={() => { signOut(); setShowMenu(false); }}
-            className="w-full text-left text-sm font-semibold py-2.5 px-1 flex items-center gap-2"
-            style={{ color: 'var(--gs-coral)' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M10.5 11.5L14 8M14 8L10.5 4.5M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            className="w-full text-left text-sm font-semibold flex items-center gap-3"
+            style={{
+              color: 'var(--gs-text-light)',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              transition: 'background 0.15s',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-gray-100, #f5f5f5)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 16H3.5C2.94772 16 2.5 15.5523 2.5 15V3C2.5 2.44772 2.94772 2 3.5 2H7M12 12.5L16 9M16 9L12 5.5M16 9H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             Sign Out
           </button>
         </div>
       )}
 
-      {/* FIX: Wrapper div at z-index 10001 ensures EditProfile renders above everything */}
+      {/* FIX: Wrapper div at z-index 400 ensures EditProfile renders above everything */}
       {showEditProfile && myDog && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10001 }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
           <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
         </div>
       )}
 
-      {/* BOTTOM PANEL — no full-screen overlay, just the content pinned to bottom */}
-      {myDog?.checkedIn && (
-        <div className="gs-card fade-in" style={{
-          position: 'fixed', bottom: '16px', left: '16px', right: '16px',
-          zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog.name} is at {myDog.checkedInAt}</p>
-            <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>Checked in — visible to nearby dogs</p>
+      {/* BOTTOM PANEL */}
+      <div style={{ pointerEvents: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px', zIndex: 100 }}>
+        {myDog?.checkedIn && (
+          <div className="gs-card mb-3 flex items-center justify-between fade-in" style={{ pointerEvents: 'auto' }}>
+            <div>
+              <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog.name} is at {myDog.checkedInAt}</p>
+              <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>Checked in — visible to nearby dogs</p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleRefreshLocation} disabled={refreshingLocation} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>
+                {refreshingLocation ? 'Finding...' : 'Refresh Location'}
+              </button>
+              <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <button onClick={handleRefreshLocation} disabled={refreshingLocation} className="btn-secondary text-sm" style={{ padding: '8px 12px' }}>
-              {refreshingLocation ? 'Finding...' : 'Refresh'}
-            </button>
-            <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 12px' }}>Leave</button>
-          </div>
-        </div>
-      )}
+        )}
 
-      {showCheckInPanel && !myDog?.checkedIn && (
-        <div className="gs-card slide-up" style={{
-          position: 'fixed', bottom: '16px', left: '16px', right: '16px', zIndex: 50,
-        }}>
-          {locationError && (
-            <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--gs-cream)', border: '1px solid var(--gs-warm)' }}>
-              <p className="text-sm font-semibold mb-1" style={{ color: 'var(--gs-coral)' }}>Location needed</p>
-              <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5 }}>{locationError}</p>
+        {showCheckInPanel && !myDog?.checkedIn && (
+          <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
+            {locationError && (
+              <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--gs-cream)', border: '1px solid var(--gs-warm)' }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: 'var(--gs-coral)' }}>Location needed</p>
+                <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5 }}>{locationError}</p>
+              </div>
+            )}
+            {detectingLocation && !locationError && (
+              <div className="mb-3 text-center">
+                <p className="text-sm font-semibold" style={{ color: 'var(--gs-green)' }}>Sniffing out your location...</p>
+              </div>
+            )}
+            {hasLocation && !detectingLocation && !locationError && (
+              <>
+                <h3 className="font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
+                  {locationName ? 'Where exactly are you?' : 'Where are you?'}
+                </h3>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="gs-input mb-2"
+                    placeholder="e.g. The Pond at McLaren Park, Big Dog Area..."
+                    value={locationName}
+                    onChange={(e) => setLocationName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
+                    style={{ paddingRight: '36px' }}
+                  />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    style={{ position: 'absolute', right: '12px', top: '14px', opacity: 0.4 }}>
+                    <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <p className="text-xs mb-3" style={{ color: 'var(--gs-text-light)' }}>
+                  Tap to rename your spot (e.g. "The Pond" or "Big Dog Area")
+                </p>
+              </>
+            )}
+            <div className="flex gap-2">
+              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); }}>Cancel</button>
+              <button
+                className="btn-primary flex-1 text-sm"
+                disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
+                onClick={handleCheckIn}
+              >
+                {checkingIn ? 'Checking in...' : 'Check In'}
+              </button>
             </div>
-          )}
-          {detectingLocation && !locationError && (
-            <div className="mb-3 text-center">
-              <p className="text-sm font-semibold" style={{ color: 'var(--gs-green)' }}>Sniffing out your location...</p>
-            </div>
-          )}
-          {hasLocation && !detectingLocation && !locationError && (
-            <>
-              <h3 className="font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
-                {locationName ? 'Looks like you are at:' : 'Where are you?'}
-              </h3>
-              <input
-                type="text"
-                className="gs-input mb-3"
-                placeholder="e.g. Dolores Park, Ocean Beach..."
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
-              />
-              <p className="text-xs mb-3" style={{ color: 'var(--gs-text-light)' }}>
-                Edit the name above if it does not look right.
-              </p>
-            </>
-          )}
-          <div className="flex gap-2">
-            <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); }}>Cancel</button>
+          </div>
+        )}
+
+        {!myDog?.checkedIn && !showCheckInPanel && (
+          <div className="flex gap-3 bounce-in" style={{ pointerEvents: 'auto' }}>
+            <button className="btn-primary" onClick={handleOpenCheckIn}
+              style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: '18px' }}>
+              We are Here!
+            </button>
             <button
-              className="btn-primary flex-1 text-sm"
-              disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
-              onClick={handleCheckIn}
+              onClick={handleRefreshLocation}
+              disabled={refreshingLocation}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '18px',
+                background: refreshingLocation ? 'var(--gs-teal-light)' : '#ffffff',
+                border: '1.5px solid var(--gs-gray-200)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: refreshingLocation ? 'wait' : 'pointer',
+                flexShrink: 0,
+              }}
             >
-              {checkingIn ? 'Checking in...' : 'Check In'}
+              <svg
+                width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                style={{ animation: refreshingLocation ? 'pulse-logo 1s ease-in-out infinite' : 'none', flexShrink: 0 }}
+              >
+                <circle cx="12" cy="12" r="3" stroke="var(--gs-teal)" strokeWidth="2" />
+                <circle cx="12" cy="12" r="8" stroke="var(--gs-teal)" strokeWidth="1.5" fill="none" />
+                <line x1="12" y1="0" x2="12" y2="4" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="12" y1="20" x2="12" y2="24" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="0" y1="12" x2="4" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="20" y1="12" x2="24" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--gs-teal)', whiteSpace: 'nowrap' }}>
+                {refreshingLocation ? 'Finding...' : 'Refresh Location'}
+              </span>
             </button>
           </div>
-        </div>
-      )}
-
-      {!myDog?.checkedIn && !showCheckInPanel && (
-        <div className="flex gap-3 bounce-in" style={{
-          position: 'fixed', bottom: '16px', left: '16px', right: '16px', zIndex: 50,
-        }}>
-          <button className="btn-primary" onClick={handleOpenCheckIn}
-            style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: '18px' }}>
-            We are Here!
-          </button>
-          <button
-            onClick={handleRefreshLocation}
-            disabled={refreshingLocation}
-            style={{
-              padding: '10px 14px',
-              borderRadius: '18px',
-              background: refreshingLocation ? 'var(--gs-teal-light)' : '#ffffff',
-              border: '1.5px solid var(--gs-gray-200)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: refreshingLocation ? 'wait' : 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            <svg
-              width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-              style={{ animation: refreshingLocation ? 'pulse-logo 1s ease-in-out infinite' : 'none', flexShrink: 0 }}
-            >
-              <circle cx="12" cy="12" r="3" stroke="var(--gs-teal)" strokeWidth="2" />
-              <circle cx="12" cy="12" r="8" stroke="var(--gs-teal)" strokeWidth="1.5" fill="none" />
-              <line x1="12" y1="0" x2="12" y2="4" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="12" y1="20" x2="12" y2="24" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="0" y1="12" x2="4" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="20" y1="12" x2="24" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--gs-teal)', whiteSpace: 'nowrap' }}>
-              {refreshingLocation ? 'Finding...' : 'Refresh Location'}
-            </span>
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* DOG PROFILE SHEET */}
       {selectedDog && (
-        <div className="fixed inset-0 flex items-end" style={{ zIndex: 100000 }} onClick={() => setSelectedDog(null)}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end' }} onClick={() => setSelectedDog(null)}>
           <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.3)' }} />
           <div className="relative w-full gs-card slide-up" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, maxHeight: '60vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setSelectedDog(null)} className="absolute top-3 right-4 text-2xl" style={{ color: 'var(--gs-text-light)' }}>×</button>
@@ -554,7 +532,7 @@ export default function MapView() {
         </div>
       )}
 
-      {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setShowMenu(false)} />)}
+      {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 250 }} onClick={() => setShowMenu(false)} />)}
     </div>
   );
 }
