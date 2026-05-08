@@ -408,15 +408,19 @@ export default function MapView() {
           </OverlayViewF>
         ))}
 
-        {/* Alert markers — visible to all users regardless of friends-only settings */}
+        {/* Alert markers — offset north so they sit above dog pins, not on top */}
         {activeAlerts.map((alert) => (
-          <OverlayViewF key={alert.id} position={alert.location} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+          <OverlayViewF
+            key={alert.id}
+            position={{ lat: alert.location.lat + 0.0003, lng: alert.location.lng }}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+          >
             <div
               style={{
-                width: '40px', height: '40px', borderRadius: '50%',
+                width: '36px', height: '36px', borderRadius: '50%',
                 background: '#fff', border: '2.5px solid #F59E0B',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '19px', cursor: 'pointer',
+                fontSize: '17px', cursor: 'pointer',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
               }}
               onMouseDown={(e) => { e.stopPropagation(); setSelectedAlert(alert); }}
@@ -625,31 +629,24 @@ export default function MapView() {
       {showMenu && (
         <div className="gs-card fade-in" style={{ position: 'fixed', top: '60px', right: '16px', zIndex: 300, minWidth: '220px', padding: '16px' }}>
           {/* Dog profile header */}
-          <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
-            <div className="w-10 h-10 rounded-full overflow-hidden" style={{ border: '2px solid var(--gs-green)' }}>
-              {myDog?.photoURL ? (<img src={myDog.photoURL} alt={myDog.name} className="w-full h-full object-cover" />) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)' }}><PawLogo size={16} /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)' }}>
+            <div style={{ width: '40px', height: '40px', minWidth: '40px', borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--gs-green)', flexShrink: 0 }}>
+              {myDog?.photoURL ? (
+                <img src={myDog.photoURL} alt={myDog.name} style={{ width: '40px', height: '40px', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gs-cream)' }}><PawLogo size={16} /></div>
               )}
             </div>
             <div>
-              <p className="font-bold text-sm" style={{ color: 'var(--gs-forest)' }}>{myDog?.name}</p>
-              <p className="text-xs" style={{ color: 'var(--gs-text-light)' }}>{myDog?.breed}</p>
+              <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--gs-forest)', margin: 0 }}>{myDog?.name}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: 0 }}>{myDog?.breed}</p>
             </div>
           </div>
           {/* Menu items */}
-          {/* FIX: stopPropagation prevents backdrop click, 50ms delay lets menu unmount before modal renders */}
-          <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowEditProfile(true), 50); }}
-            className="w-full text-left text-sm font-semibold flex items-center gap-3"
-            style={{
-              color: 'var(--gs-forest)',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              transition: 'background 0.15s',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-gray-100, #f5f5f5)'}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowEditProfile(true), 50); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--gs-forest)', transition: 'background 0.12s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f0faf7'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -657,18 +654,10 @@ export default function MapView() {
             </svg>
             Edit Profile
           </button>
-          <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowMyPack(true), 50); }}
-            className="w-full text-left text-sm font-semibold flex items-center gap-3"
-            style={{
-              color: 'var(--gs-forest)',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              transition: 'background 0.15s',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-gray-100, #f5f5f5)'}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowMyPack(true), 50); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--gs-forest)', transition: 'background 0.12s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f0faf7'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -697,17 +686,9 @@ export default function MapView() {
 
           <div style={{ height: '1px', background: 'var(--gs-gray-200, #e5e5e5)', margin: '6px 0' }} />
 
-          <button onClick={() => { signOut(); setShowMenu(false); }}
-            className="w-full text-left text-sm font-semibold flex items-center gap-3"
-            style={{
-              color: '#9ca3af',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              transition: 'background 0.15s',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
+          <button
+            onClick={() => { signOut(); setShowMenu(false); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#9ca3af', transition: 'background 0.12s' }}
             onMouseEnter={(e) => e.currentTarget.style.background = '#fff0f0'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
@@ -735,13 +716,17 @@ export default function MapView() {
       {/* BOTTOM PANEL */}
       <div style={{ pointerEvents: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px', zIndex: 10 }}>
         {myDog?.checkedIn && (
-          <div className="gs-card fade-in" style={{
+          <div style={{
             pointerEvents: 'auto',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             padding: '8px 12px',
             marginBottom: '8px',
+            background: '#fff',
+            borderRadius: '14px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
+            border: '1px solid rgba(0,0,0,0.06)',
           }}>
             <p style={{
               flex: 1,
@@ -762,26 +747,26 @@ export default function MapView() {
                   onClick={() => setShowReportAlert(true)}
                   style={{
                     background: 'rgba(245,158,11,0.08)',
-                    border: '1px solid rgba(245,158,11,0.35)',
-                    borderRadius: '20px', padding: '5px 10px',
+                    border: '1px solid rgba(245,158,11,0.4)',
+                    borderRadius: '20px', padding: '4px 9px',
                     fontSize: '0.7rem', fontWeight: 600,
                     color: '#92400e', cursor: 'pointer',
-                    whiteSpace: 'nowrap',
+                    whiteSpace: 'nowrap', lineHeight: 1.4,
                   }}
                 >
-                  ⚠️ Alert
+                  ⚠ Alert
                 </button>
               )}
               <button
                 onClick={handleRefreshLocation}
                 disabled={refreshingLocation}
                 style={{
-                  background: '#fff',
-                  border: '1px solid var(--gs-gray-200, #e5e5e5)',
-                  borderRadius: '20px', padding: '5px 10px',
+                  background: 'rgba(0,148,163,0.06)',
+                  border: '1px solid rgba(0,148,163,0.3)',
+                  borderRadius: '20px', padding: '4px 9px',
                   fontSize: '0.7rem', fontWeight: 600,
                   color: 'var(--gs-teal)', cursor: refreshingLocation ? 'wait' : 'pointer',
-                  whiteSpace: 'nowrap',
+                  whiteSpace: 'nowrap', lineHeight: 1.4,
                 }}
               >
                 {refreshingLocation ? '…' : '↻ Refresh'}
@@ -789,15 +774,15 @@ export default function MapView() {
               <button
                 onClick={handleCheckOut}
                 style={{
-                  background: '#fff',
-                  border: '1px solid var(--gs-gray-200, #e5e5e5)',
-                  borderRadius: '20px', padding: '5px 10px',
+                  background: 'rgba(0,0,0,0.04)',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: '20px', padding: '4px 9px',
                   fontSize: '0.7rem', fontWeight: 600,
-                  color: 'var(--gs-text-light)', cursor: 'pointer',
-                  whiteSpace: 'nowrap',
+                  color: '#6b7280', cursor: 'pointer',
+                  whiteSpace: 'nowrap', lineHeight: 1.4,
                 }}
               >
-                Leave
+                ✕ Leave
               </button>
             </div>
           </div>
