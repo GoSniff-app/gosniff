@@ -1,0 +1,162 @@
+'use client';
+
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { db } from './firebase';
+import { useAuth } from './auth-context';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+
+const PackContext = createContext({});
+
+export function usePack() {
+  return useContext(PackContext);
+}
+
+export function PackProvider({ children }) {
+  const { user } = useAuth();
+
+  const [myPack, setMyPack] = useState([]);
+  const [pendingReceived, setPendingReceived] = useState([]);
+  const [pendingSent, setPendingSent] = useState([]);
+
+  const linksUnsubRef = useRef(null);
+  const receivedUnsubRef = useRef(null);
+  const sentUnsubRef = useRef(null);
+
+  useEffect(() => {
+    function cleanup() {
+      if (linksUnsubRef.current) { linksUnsubRef.current(); linksUnsubRef.current = null; }
+      if (receivedUnsubRef.current) { receivedUnsubRef.current(); receivedUnsubRef.current = null; }
+      if (sentUnsubRef.current) { sentUnsubRef.current(); sentUnsubRef.current = null; }
+    }
+
+    if (!user || !db) {
+      cleanup();
+      setMyPack([]);
+      setPendingReceived([]);
+      setPendingSent([]);
+      return;
+    }
+
+    // Real-time listener: confirmed pack links where this human is a member
+    linksUnsubRef.current = onSnapshot(
+      query(collection(db, 'packLinks'), where('humanIds', 'array-contains', user.uid)),
+      (snapshot) => setMyPack(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+
+    // Real-time listener: incoming pending requests addressed to this human
+    // Requires a Firestore composite index on (toHumanId, status) — Firestore will
+    // log a link to create it automatically on first run if it doesn't exist yet.
+    receivedUnsubRef.current = onSnapshot(
+      query(
+        collection(db, 'packRequests'),
+        where('toHumanId', '==', user.uid),
+        where('status', '==', 'pending')
+      ),
+      (snapshot) => setPendingReceived(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+
+    // Real-time listener: outgoing pending requests sent by this human
+    // Requires a Firestore composite index on (fromHumanId, status).
+    sentUnsubRef.current = onSnapshot(
+      query(
+        collection(db, 'packRequests'),
+        where('fromHumanId', '==', user.uid),
+        where('status', '==', 'pending')
+      ),
+      (snapshot) => setPendingSent(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+
+    return cleanup;
+  }, [user]);
+
+  async function sendPackRequest(fromDogId, toDogId) {
+    if (!user) return;
+    const toDogSnap = await getDoc(doc(db, 'dogs', toDogId));
+    if (!toDogSnap.exists()) throw new Error('Dog not found');
+    const toHumanId = toDogSnap.data().humanIds?.[0];
+    if (!toHumanId) throw new Error('Could not find the owner of that dog');
+
+    await addDoc(collection(db, 'packRequests'), {
+      fromDogId,
+      toDogId,
+      fromHumanId: user.uid,
+      toHumanId,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      respondedAt: null,
+    });
+  }
+
+  async function acceptPackRequest(requestId) {
+    const reqRef = doc(db, 'packRequests', requestId);
+    const reqSnap = await getDoc(reqRef);
+    if (!reqSnap.exists()) throw new Error('Request not found');
+    const { fromDogId, toDogId, fromHumanId, toHumanId } = reqSnap.data();
+
+    await updateDoc(reqRef, {
+      status: 'accepted',
+      respondedAt: serverTimestamp(),
+    });
+
+    // Sort both arrays so the document is queryable from either side
+    await addDoc(collection(db, 'packLinks'), {
+      dogIds: [fromDogId, toDogId].sort(),
+      humanIds: [fromHumanId, toHumanId].sort(),
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  async function declinePackRequest(requestId) {
+    await updateDoc(doc(db, 'packRequests', requestId), {
+      status: 'declined',
+      respondedAt: serverTimestamp(),
+    });
+  }
+
+  async function cancelPackRequest(requestId) {
+    await deleteDoc(doc(db, 'packRequests', requestId));
+  }
+
+  async function removeFromPack(linkId) {
+    await deleteDoc(doc(db, 'packLinks', linkId));
+  }
+
+  function isInMyPack(dogId) {
+    return myPack.some((link) => link.dogIds?.includes(dogId));
+  }
+
+  // Returns the relationship status between the current user's dog and any other dog.
+  // "accepted" checked first so a stale pending entry never shadows a live friendship.
+  function getPackRequestStatus(dogId) {
+    if (isInMyPack(dogId)) return 'accepted';
+    if (pendingSent.some((r) => r.toDogId === dogId)) return 'sent';
+    if (pendingReceived.some((r) => r.fromDogId === dogId)) return 'received';
+    return 'none';
+  }
+
+  const value = {
+    myPack,
+    pendingReceived,
+    pendingSent,
+    sendPackRequest,
+    acceptPackRequest,
+    declinePackRequest,
+    cancelPackRequest,
+    removeFromPack,
+    isInMyPack,
+    getPackRequestStatus,
+  };
+
+  return <PackContext.Provider value={value}>{children}</PackContext.Provider>;
+}

@@ -5,8 +5,10 @@ import { GoogleMap, useJsApiLoader, OverlayViewF, OverlayView } from '@react-goo
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
+import { usePack } from '@/lib/pack-context';
 import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
+import MyPackList from './MyPackList';
 
 const mapStyles = [
   { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#c8e6c9' }] },
@@ -64,15 +66,20 @@ async function reverseGeocode(lat, lng) {
 
 export default function MapView() {
   const { user, dogs, checkIn, checkOut, signOut, updateDog } = useAuth();
+  const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack } = usePack();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
   const [selectedDog, setSelectedDog] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showMyPack, setShowMyPack] = useState(false);
+  const [packActionLoading, setPackActionLoading] = useState(null);
+  const [confirmRemoveFromSheet, setConfirmRemoveFromSheet] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [showCheckInPanel, setShowCheckInPanel] = useState(false);
+  const [checkInVisibility, setCheckInVisibility] = useState('everyone');
   const autoCheckoutRef = useRef(null);
   const myDog = dogs[0];
 
@@ -132,6 +139,12 @@ export default function MapView() {
     }
     return () => { if (autoCheckoutRef.current) clearTimeout(autoCheckoutRef.current); };
   }, [myDog?.checkedIn, myDog?.checkedInTime]);
+
+  // Reset pack button state whenever the user opens a different dog's profile sheet.
+  useEffect(() => {
+    setPackActionLoading(null);
+    setConfirmRemoveFromSheet(false);
+  }, [selectedDog?.id]);
 
   const mapRef = useRef(null);
 
@@ -205,9 +218,10 @@ export default function MapView() {
     if (!locationName.trim() || !hasLocation || !gpsCoords) return;
     setCheckingIn(true);
     try {
-      await checkIn(myDog.id, locationName.trim(), gpsCoords.lat, gpsCoords.lng);
+      await checkIn(myDog.id, locationName.trim(), gpsCoords.lat, gpsCoords.lng, checkInVisibility);
       setShowCheckInPanel(false);
       setLocationName('');
+      setCheckInVisibility('everyone');
     } catch (err) { console.error('Check-in failed:', err); }
     setCheckingIn(false);
   }
@@ -261,7 +275,13 @@ export default function MapView() {
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
-        {nearbyDogs.map((dog) => (
+        {nearbyDogs
+          .filter((dog) => {
+            if (dog.id === myDog?.id) return true;
+            if (dog.visibilityOnCheckIn === 'friends') return myPack.some((link) => link.dogIds?.includes(dog.id));
+            return true;
+          })
+          .map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
               className="dog-pin bounce-in"
@@ -302,6 +322,7 @@ export default function MapView() {
           <span style={{ fontFamily: "'Fredoka', sans-serif", color: '#1a1a1a', fontSize: '1.25rem', fontWeight: 700 }}>GoSniff</span>
         </div>
         <button onClick={() => setShowMenu(!showMenu)} style={{
+          position: 'relative',
           width: '40px',
           height: '40px',
           borderRadius: '50%',
@@ -318,6 +339,30 @@ export default function MapView() {
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+          {pendingReceived.length > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '0px',
+              right: '0px',
+              minWidth: '18px',
+              height: '18px',
+              borderRadius: '9px',
+              background: 'var(--gs-teal)',
+              color: '#fff',
+              fontSize: '0.6rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '2px solid #fff',
+              padding: '0 3px',
+              lineHeight: 1,
+              boxSizing: 'border-box',
+              pointerEvents: 'none',
+            }}>
+              {pendingReceived.length > 9 ? '9+' : pendingReceived.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -357,6 +402,44 @@ export default function MapView() {
             </svg>
             Edit Profile
           </button>
+          <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowMyPack(true), 50); }}
+            className="w-full text-left text-sm font-semibold flex items-center gap-3"
+            style={{
+              color: 'var(--gs-forest)',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              transition: 'background 0.15s',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--gs-gray-100, #f5f5f5)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6.5" cy="5.5" r="2.5" stroke="var(--gs-teal)" strokeWidth="1.5" />
+              <path d="M1 15c0-3.04 2.46-5.5 5.5-5.5S12 11.96 12 15" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="12.5" cy="5.5" r="2" stroke="var(--gs-teal)" strokeWidth="1.5" />
+              <path d="M13.5 9.7c1.97.6 3.5 2.45 3.5 4.8" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span style={{ flex: 1 }}>
+              My Pack{myPack.length > 0 && ` (${myPack.length})`}
+            </span>
+            {pendingReceived.length > 0 && (
+              <span style={{
+                background: 'var(--gs-teal)',
+                color: '#fff',
+                borderRadius: '10px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                padding: '2px 7px',
+                lineHeight: '1.4',
+              }}>
+                {pendingReceived.length}
+              </span>
+            )}
+          </button>
+
           <button onClick={() => { signOut(); setShowMenu(false); }}
             className="w-full text-left text-sm font-semibold flex items-center gap-3"
             style={{
@@ -383,6 +466,12 @@ export default function MapView() {
       {showEditProfile && myDog && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
           <EditProfile dog={myDog} onClose={() => setShowEditProfile(false)} />
+        </div>
+      )}
+
+      {showMyPack && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
+          <MyPackList onClose={() => setShowMyPack(false)} />
         </div>
       )}
 
@@ -440,10 +529,46 @@ export default function MapView() {
                 <p className="text-xs mb-3" style={{ color: 'var(--gs-text-light)' }}>
                   Tap to rename your spot (e.g. "The Pond" or "Big Dog Area")
                 </p>
+
+                {/* Visibility toggle */}
+                <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Who can see you?</p>
+                <div style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid var(--gs-gray-200, #e5e5e5)', marginBottom: '10px' }}>
+                  <button
+                    style={{
+                      flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                      border: 'none', cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
+                      background: checkInVisibility === 'everyone' ? 'var(--gs-teal)' : '#fff',
+                      color: checkInVisibility === 'everyone' ? '#fff' : 'var(--gs-text-light)',
+                    }}
+                    onClick={() => setCheckInVisibility('everyone')}
+                  >
+                    Visible to Everyone
+                  </button>
+                  <button
+                    style={{
+                      flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                      border: 'none', borderLeft: '1.5px solid var(--gs-gray-200, #e5e5e5)',
+                      cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
+                      background: checkInVisibility === 'friends' ? 'var(--gs-teal)' : '#fff',
+                      color: checkInVisibility === 'friends' ? '#fff' : 'var(--gs-text-light)',
+                    }}
+                    onClick={() => setCheckInVisibility('friends')}
+                  >
+                    Friends Only
+                  </button>
+                </div>
+
+                {checkInVisibility === 'friends' && myPack.length === 0 && (
+                  <div className="mb-2" style={{ background: 'var(--gs-cream)', borderRadius: '10px', padding: '9px 12px' }}>
+                    <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5, margin: 0 }}>
+                      You don't have any pack members yet. Check in visible to everyone, or tap a dog on the map to add them to your pack first.
+                    </p>
+                  </div>
+                )}
               </>
             )}
             <div className="flex gap-2">
-              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); }}>Cancel</button>
+              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); setCheckInVisibility('everyone'); }}>Cancel</button>
               <button
                 className="btn-primary flex-1 text-sm"
                 disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
@@ -582,12 +707,123 @@ export default function MapView() {
               ) : null}
             </div>
 
-            {/* Action button */}
-            {selectedDog.id !== myDog?.id && (
-              <button className="btn-primary w-full" style={{ padding: '12px', fontSize: '0.95rem' }} onClick={() => alert('Messaging coming soon!')}>
-                Say Hi to {selectedDog.name}
-              </button>
-            )}
+            {/* Pack relationship button */}
+            {selectedDog.id !== myDog?.id && (() => {
+              const status = getPackRequestStatus(selectedDog.id);
+
+              if (status === 'accepted') {
+                const packLink = myPack.find((l) => l.dogIds?.includes(selectedDog.id));
+                if (confirmRemoveFromSheet) {
+                  return (
+                    <div className="fade-in" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <p style={{ flex: 1, fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: 0, lineHeight: 1.4 }}>
+                        Remove {selectedDog.name} from your pack?
+                      </p>
+                      <button
+                        className="btn-secondary"
+                        style={{ padding: '7px 12px', fontSize: '0.8rem', flexShrink: 0 }}
+                        onClick={() => setConfirmRemoveFromSheet(false)}
+                      >
+                        Keep
+                      </button>
+                      <button
+                        style={{ padding: '7px 12px', fontSize: '0.8rem', fontWeight: 700, background: 'var(--gs-coral, #FF6B6B)', color: '#fff', border: 'none', borderRadius: '10px', cursor: packActionLoading === 'remove' ? 'wait' : 'pointer', flexShrink: 0 }}
+                        disabled={packActionLoading === 'remove'}
+                        onClick={async () => {
+                          if (!packLink) return;
+                          setPackActionLoading('remove');
+                          try { await removeFromPack(packLink.id); setConfirmRemoveFromSheet(false); }
+                          catch (err) { console.error('Failed to remove from pack:', err); }
+                          setPackActionLoading(null);
+                        }}
+                      >
+                        {packActionLoading === 'remove' ? '…' : 'Remove'}
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(45, 106, 79, 0.07)', borderRadius: '14px', border: '1.5px solid var(--gs-green)' }}>
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                      <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={{ flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--gs-forest)' }}>In Your Pack</span>
+                    <button
+                      onClick={() => setConfirmRemoveFromSheet(true)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-text-light)', padding: 0 }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              }
+
+              if (status === 'sent') {
+                return (
+                  <button
+                    className="btn-secondary w-full"
+                    disabled
+                    style={{ padding: '12px', fontSize: '0.95rem', opacity: 0.65, cursor: 'default' }}
+                  >
+                    Pack Request Sent
+                  </button>
+                );
+              }
+
+              if (status === 'received') {
+                const req = pendingReceived.find((r) => r.fromDogId === selectedDog.id);
+                return (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      className="btn-primary"
+                      style={{ flex: 1, padding: '12px', fontSize: '0.9rem' }}
+                      disabled={packActionLoading !== null}
+                      onClick={async () => {
+                        if (!req) return;
+                        setPackActionLoading('accept');
+                        try { await acceptPackRequest(req.id); }
+                        catch (err) { console.error('Failed to accept pack request:', err); }
+                        setPackActionLoading(null);
+                      }}
+                    >
+                      {packActionLoading === 'accept' ? '…' : 'Accept Pack Request'}
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '12px 16px', fontSize: '0.9rem' }}
+                      disabled={packActionLoading !== null}
+                      onClick={async () => {
+                        if (!req) return;
+                        setPackActionLoading('decline');
+                        try { await declinePackRequest(req.id); }
+                        catch (err) { console.error('Failed to decline pack request:', err); }
+                        setPackActionLoading(null);
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                );
+              }
+
+              // status === 'none'
+              return (
+                <button
+                  className="btn-primary w-full"
+                  style={{ padding: '12px', fontSize: '0.95rem' }}
+                  disabled={packActionLoading === 'send'}
+                  onClick={async () => {
+                    if (!myDog) return;
+                    setPackActionLoading('send');
+                    try { await sendPackRequest(myDog.id, selectedDog.id); }
+                    catch (err) { console.error('Failed to send pack request:', err); }
+                    setPackActionLoading(null);
+                  }}
+                >
+                  {packActionLoading === 'send' ? 'Sending…' : `Add ${selectedDog.name} to My Pack`}
+                </button>
+              );
+            })()}
           </div>
         </div>
       )}

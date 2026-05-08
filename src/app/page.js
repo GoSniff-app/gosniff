@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { PackProvider } from '@/lib/pack-context';
 import JoinThePack from '@/components/JoinThePack';
 import SignIn from '@/components/SignIn';
 import MapView from '@/components/MapView';
@@ -69,7 +70,9 @@ function AppContent() {
 export default function Home() {
   return (
     <AuthProvider>
-      <AppContent />
+      <PackProvider>
+        <AppContent />
+      </PackProvider>
     </AuthProvider>
   );
 }

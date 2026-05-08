@@ -134,13 +134,14 @@ export function AuthProvider({ children }) {
     return firebaseSignOut(auth);
   }
 
-  async function checkIn(dogId, locationName, lat, lng) {
+  async function checkIn(dogId, locationName, lat, lng, visibility = 'everyone') {
     await updateDoc(doc(db, 'dogs', dogId), {
       checkedIn: true,
       checkedInAt: locationName,
       checkedInLocation: { lat, lng },
       checkedInTime: serverTimestamp(),
       privacyZone: 'checked-in',
+      visibilityOnCheckIn: visibility,
     });
   }
 
