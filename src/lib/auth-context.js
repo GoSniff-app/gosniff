@@ -155,6 +155,12 @@ export function AuthProvider({ children }) {
     });
   }
 
+  async function extendCheckIn(dogId) {
+    await updateDoc(doc(db, 'dogs', dogId), {
+      checkedInTime: serverTimestamp(),
+    });
+  }
+
   async function updateDog(dogId, data) {
     await updateDoc(doc(db, 'dogs', dogId), data);
   }
@@ -174,7 +180,7 @@ export function AuthProvider({ children }) {
   const value = {
     user, dogs, loading, dogsLoaded,
     signUp, signIn, signOut, resetPassword,
-    checkIn, checkOut, updateDog, deleteAccount,
+    checkIn, checkOut, extendCheckIn, updateDog, deleteAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

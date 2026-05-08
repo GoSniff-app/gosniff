@@ -6,9 +6,45 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
+import { useAlerts } from '@/lib/alerts-context';
 import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
+import ReportAlertSheet from './ReportAlertSheet';
+
+const ALERT_EMOJI = {
+  coyote: '🐺',
+  aggressive_dog: '🐕',
+  ranger: '👮',
+  stinky: '💩',
+  custom: '📢',
+};
+
+const ALERT_LABEL = {
+  coyote: 'Coyote spotted',
+  aggressive_dog: 'Aggressive dog off leash',
+  ranger: 'Park ranger giving tickets',
+  stinky: 'Something stinky to roll in',
+  custom: 'Alert',
+};
+
+function distanceMiles(a, b) {
+  if (!a || !b) return Infinity;
+  const R = 3958.8;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(h));
+}
+
+function timeAgo(ts) {
+  if (!ts?.toDate) return 'just now';
+  const mins = Math.floor((Date.now() - ts.toDate().getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
 
 const mapStyles = [
   { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#c8e6c9' }] },
@@ -23,6 +59,7 @@ const mapStyles = [
 const mapContainerStyle = { width: '100%', height: '100%' };
 const defaultCenter = { lat: 37.7749, lng: -122.4194 };
 const AUTO_CHECKOUT_MS = 60 * 60 * 1000;
+const STILL_SNIFFING_PROMPT_MS = 50 * 60 * 1000;
 
 async function reverseGeocode(lat, lng) {
   try {
@@ -65,8 +102,9 @@ async function reverseGeocode(lat, lng) {
 }
 
 export default function MapView() {
-  const { user, dogs, checkIn, checkOut, signOut, updateDog } = useAuth();
-  const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack } = usePack();
+  const { user, dogs, checkIn, checkOut, extendCheckIn, signOut, updateDog } = useAuth();
+  const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
+  const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -81,6 +119,9 @@ export default function MapView() {
   const [showCheckInPanel, setShowCheckInPanel] = useState(false);
   const [checkInVisibility, setCheckInVisibility] = useState('everyone');
   const autoCheckoutRef = useRef(null);
+  const stillSniffingPromptRef = useRef(null);
+  const dismissedAlertsRef = useRef(new Set());
+  const promptingAlertIdRef = useRef(null);
   const myDog = dogs[0];
 
   const [hasLocation, setHasLocation] = useState(false);
@@ -88,6 +129,13 @@ export default function MapView() {
   const [gpsCoords, setGpsCoords] = useState(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [refreshingLocation, setRefreshingLocation] = useState(false);
+  const [showReportAlert, setShowReportAlert] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [promptingAlertId, setPromptingAlertId] = useState(null);
+  const [alertVoteLoading, setAlertVoteLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [frenemyWarning, setFrenemyWarning] = useState(null);
+  const [showStillSniffing, setShowStillSniffing] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -131,13 +179,33 @@ export default function MapView() {
   }, []);
 
   useEffect(() => {
+    if (autoCheckoutRef.current) clearTimeout(autoCheckoutRef.current);
+    if (stillSniffingPromptRef.current) clearTimeout(stillSniffingPromptRef.current);
+    setShowStillSniffing(false);
+
     if (myDog?.checkedIn && myDog?.checkedInTime) {
       const checkedInAt = myDog.checkedInTime.toDate ? myDog.checkedInTime.toDate().getTime() : Date.now();
-      const remaining = AUTO_CHECKOUT_MS - (Date.now() - checkedInAt);
-      if (remaining <= 0) { checkOut(myDog.id); }
-      else { autoCheckoutRef.current = setTimeout(() => checkOut(myDog.id), remaining); }
+      const elapsed = Date.now() - checkedInAt;
+      const remainingForCheckout = AUTO_CHECKOUT_MS - elapsed;
+
+      if (remainingForCheckout <= 0) {
+        checkOut(myDog.id);
+        return;
+      }
+
+      const remainingForPrompt = STILL_SNIFFING_PROMPT_MS - elapsed;
+      if (remainingForPrompt <= 0) {
+        setShowStillSniffing(true);
+      } else {
+        stillSniffingPromptRef.current = setTimeout(() => setShowStillSniffing(true), remainingForPrompt);
+      }
+      autoCheckoutRef.current = setTimeout(() => checkOut(myDog.id), remainingForCheckout);
     }
-    return () => { if (autoCheckoutRef.current) clearTimeout(autoCheckoutRef.current); };
+
+    return () => {
+      if (autoCheckoutRef.current) clearTimeout(autoCheckoutRef.current);
+      if (stillSniffingPromptRef.current) clearTimeout(stillSniffingPromptRef.current);
+    };
   }, [myDog?.checkedIn, myDog?.checkedInTime]);
 
   // Reset pack button state whenever the user opens a different dog's profile sheet.
@@ -145,6 +213,41 @@ export default function MapView() {
     setPackActionLoading(null);
     setConfirmRemoveFromSheet(false);
   }, [selectedDog?.id]);
+
+  // "Still there?" — proactively prompt the user to vote on nearby alerts
+  // after they've been checked in for 10+ minutes.
+  useEffect(() => {
+    // If the alert being prompted has expired or been deactivated, clear it.
+    if (promptingAlertIdRef.current && !activeAlerts.find((a) => a.id === promptingAlertIdRef.current)) {
+      promptingAlertIdRef.current = null;
+      setPromptingAlertId(null);
+    }
+
+    if (!myDog?.checkedIn || !gpsCoords || !user) return;
+
+    function checkForPrompt() {
+      if (promptingAlertIdRef.current) return;
+      const checkedInAt = myDog?.checkedInTime?.toDate?.();
+      if (!checkedInAt) return;
+      if ((Date.now() - checkedInAt.getTime()) / 60000 < 10) return;
+
+      const nearby = activeAlerts.find((a) => {
+        if (dismissedAlertsRef.current.has(a.id)) return false;
+        if (a.confirmedByHumanIds?.includes(user.uid)) return false;
+        if (a.deniedByHumanIds?.includes(user.uid)) return false;
+        return distanceMiles(gpsCoords, a.location) <= 0.5;
+      });
+
+      if (nearby) {
+        promptingAlertIdRef.current = nearby.id;
+        setPromptingAlertId(nearby.id);
+      }
+    }
+
+    checkForPrompt();
+    const interval = setInterval(checkForPrompt, 60_000);
+    return () => clearInterval(interval);
+  }, [activeAlerts, gpsCoords, myDog?.checkedIn, myDog?.checkedInTime, user?.uid]);
 
   const mapRef = useRef(null);
 
@@ -168,6 +271,8 @@ export default function MapView() {
           m.panTo(coords);
           m.setZoom(15);
         }
+        // Reset the 60-minute checkout timer so location refresh counts as activity
+        if (myDog?.checkedIn) extendCheckIn(myDog.id).catch(() => {});
         setTimeout(() => setRefreshingLocation(false), 800);
       },
       (err) => {
@@ -214,7 +319,7 @@ export default function MapView() {
     );
   }
 
-  async function handleCheckIn() {
+  async function executeCheckIn() {
     if (!locationName.trim() || !hasLocation || !gpsCoords) return;
     setCheckingIn(true);
     try {
@@ -222,13 +327,46 @@ export default function MapView() {
       setShowCheckInPanel(false);
       setLocationName('');
       setCheckInVisibility('everyone');
+      setFrenemyWarning(null);
     } catch (err) { console.error('Check-in failed:', err); }
     setCheckingIn(false);
+  }
+
+  async function handleCheckIn() {
+    if (!locationName.trim() || !hasLocation || !gpsCoords) return;
+    const frenemyAtLocation = nearbyDogs.find(
+      (dog) => frenemyDogIds.includes(dog.id) && distanceMiles(gpsCoords, dog.checkedInLocation) <= 0.5
+    );
+    if (frenemyAtLocation) {
+      setFrenemyWarning({ dog: frenemyAtLocation });
+      return;
+    }
+    await executeCheckIn();
   }
 
   async function handleCheckOut() {
     try { await checkOut(myDog.id); }
     catch (err) { console.error('Check-out failed:', err); }
+  }
+
+  async function handleInvite() {
+    const name = myDog?.name || 'My dog';
+    const shareData = {
+      title: 'GoSniff - Dogs on the Map',
+      text: `${name} is on GoSniff! See which dogs are at the park right now and come hang out.`,
+      url: 'https://gosniff.app',
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('Share failed:', err);
+    }
   }
 
   if (!isLoaded) {
@@ -271,23 +409,27 @@ export default function MapView() {
     );
   }
 
+  const visibleDogs = nearbyDogs.filter((dog) => {
+    if (dog.id === myDog?.id) return true;
+    if (dog.visibilityOnCheckIn === 'friends') return myPack.some((link) => link.dogIds?.includes(dog.id));
+    return true;
+  });
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
-        {nearbyDogs
-          .filter((dog) => {
-            if (dog.id === myDog?.id) return true;
-            if (dog.visibilityOnCheckIn === 'friends') return myPack.some((link) => link.dogIds?.includes(dog.id));
-            return true;
-          })
-          .map((dog) => (
+        {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
               className="dog-pin bounce-in"
               title={dog.name + ' at ' + dog.checkedInAt}
               style={{
-                border: dog.id === myDog?.id ? '3px solid var(--gs-warm)' : '3px solid var(--gs-green)',
+                border: dog.id === myDog?.id
+                  ? '3px solid var(--gs-warm)'
+                  : frenemyDogIds.includes(dog.id)
+                    ? '3px solid #F97316'
+                    : '3px solid var(--gs-green)',
                 position: 'relative',
                 zIndex: 1,
               }}
@@ -302,7 +444,73 @@ export default function MapView() {
             </div>
           </OverlayViewF>
         ))}
+
+        {/* Alert markers — visible to all users regardless of friends-only settings */}
+        {activeAlerts.map((alert) => (
+          <OverlayViewF key={alert.id} position={alert.location} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
+            <div
+              style={{
+                width: '40px', height: '40px', borderRadius: '50%',
+                background: '#fff', border: '2.5px solid #F59E0B',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '19px', cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+              }}
+              onMouseDown={(e) => { e.stopPropagation(); setSelectedAlert(alert); }}
+              onTouchStart={(e) => { e.stopPropagation(); setSelectedAlert(alert); }}
+            >
+              {ALERT_EMOJI[alert.type] || '⚠️'}
+            </div>
+          </OverlayViewF>
+        ))}
       </GoogleMap>
+
+      {/* EMPTY MAP STATE */}
+      {visibleDogs.length === 0 && !showCheckInPanel && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: '80px',
+          paddingBottom: '120px',
+          pointerEvents: 'none',
+        }}>
+          <div className="gs-card slide-up text-center" style={{ pointerEvents: 'auto', maxWidth: '300px', width: '100%', padding: '28px 24px' }}>
+            <PawLogo size={56} className="mx-auto mb-3" />
+            <h2 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontSize: '1.3rem', fontWeight: 700, marginBottom: '6px' }}>
+              No dogs out right now
+            </h2>
+            <p style={{ color: 'var(--gs-text-light)', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: activeAlerts.length > 0 ? '8px' : '20px' }}>
+              Be the first to check in at the park!
+            </p>
+            {activeAlerts.length > 0 && (
+              <p style={{ color: 'var(--gs-text-light)', fontSize: '0.8rem', marginBottom: '20px' }}>
+                {activeAlerts.length} active alert{activeAlerts.length > 1 ? 's' : ''} on the map — tap a marker to see details.
+              </p>
+            )}
+            <button
+              className="btn-primary w-full"
+              style={{ marginBottom: '10px', fontSize: '0.95rem' }}
+              onClick={handleOpenCheckIn}
+            >
+              We're Here!
+            </button>
+            <button
+              className="btn-secondary w-full"
+              style={{ fontSize: '0.875rem' }}
+              onClick={handleInvite}
+            >
+              {copied ? '✓ Link copied!' : 'Invite Your Dog Friends'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* HEADER BAR */}
       <div style={{
@@ -489,6 +697,22 @@ export default function MapView() {
               </button>
               <button onClick={handleCheckOut} className="btn-secondary text-sm" style={{ padding: '8px 16px' }}>Leave</button>
             </div>
+          </div>
+        )}
+
+        {myDog?.checkedIn && gpsCoords && (
+          <div style={{ pointerEvents: 'auto', display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+            <button
+              onClick={() => setShowReportAlert(true)}
+              style={{
+                background: 'rgba(255,255,255,0.92)', border: '1px solid var(--gs-gray-200, #e5e5e5)',
+                borderRadius: '20px', padding: '6px 16px', fontSize: '0.78rem', fontWeight: 600,
+                color: 'var(--gs-text-light)', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                gap: '5px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+              }}
+            >
+              ⚠️ Report Alert
+            </button>
           </div>
         )}
 
@@ -824,6 +1048,238 @@ export default function MapView() {
                 </button>
               );
             })()}
+
+            {/* Frenemy Alert — subtle text link, not prominent */}
+            {selectedDog.id !== myDog?.id && (
+              <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                {frenemyDogIds.includes(selectedDog.id) ? (
+                  <button
+                    onClick={() => removeFrenemy(selectedDog.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--gs-text-light)', textDecoration: 'underline', padding: '4px 8px' }}
+                  >
+                    Remove Frenemy Alert
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => addFrenemy(selectedDog.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--gs-text-light)', textDecoration: 'underline', padding: '4px 8px' }}
+                  >
+                    + Frenemy Alert
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* REPORT ALERT SHEET */}
+      {showReportAlert && myDog && gpsCoords && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
+          <ReportAlertSheet
+            myDog={myDog}
+            gpsCoords={gpsCoords}
+            locationName={myDog.checkedInAt}
+            onClose={() => setShowReportAlert(false)}
+          />
+        </div>
+      )}
+
+      {/* ALERT DETAIL SHEET — tap an alert pin to see details + vote */}
+      {selectedAlert && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setSelectedAlert(null)}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)' }} />
+          <div
+            className="relative w-full slide-up"
+            style={{ background: 'var(--gs-white, #fff)', borderTopLeftRadius: '20px', borderTopRightRadius: '20px', padding: '20px', paddingTop: '16px', maxHeight: '50vh', overflow: 'auto', boxShadow: '0 -4px 20px rgba(0,0,0,0.12)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={() => setSelectedAlert(null)} style={{ position: 'absolute', top: '12px', right: '16px', width: '32px', height: '32px', borderRadius: '50%', background: 'var(--gs-gray-100, #f5f5f5)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', color: 'var(--gs-gray-500, #737373)' }}>×</button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', paddingRight: '36px' }}>
+              <span style={{ fontSize: '2.6rem', lineHeight: 1, flexShrink: 0 }}>{ALERT_EMOJI[selectedAlert.type] || '⚠️'}</span>
+              <div>
+                <h3 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontSize: '1.15rem', fontWeight: 700, margin: '0 0 3px 0' }}>
+                  {selectedAlert.type === 'custom' ? selectedAlert.customText : ALERT_LABEL[selectedAlert.type]}
+                </h3>
+                <p style={{ color: 'var(--gs-text-light)', fontSize: '0.8rem', margin: 0 }}>
+                  {selectedAlert.locationName} · reported {timeAgo(selectedAlert.createdAt)}
+                </p>
+                {(selectedAlert.confirmCount > 0 || selectedAlert.denyCount > 0) && (
+                  <p style={{ color: 'var(--gs-text-light)', fontSize: '0.72rem', margin: '3px 0 0 0' }}>
+                    {selectedAlert.confirmCount} confirmed · {selectedAlert.denyCount} disputed
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {user && (() => {
+              const confirmed = selectedAlert.confirmedByHumanIds?.includes(user.uid);
+              const denied = selectedAlert.deniedByHumanIds?.includes(user.uid);
+              if (confirmed) return <p style={{ textAlign: 'center', color: 'var(--gs-green)', fontWeight: 600, fontSize: '0.875rem', padding: '8px 0' }}>✓ You confirmed this alert</p>;
+              if (denied) return <p style={{ textAlign: 'center', color: 'var(--gs-text-light)', fontWeight: 600, fontSize: '0.875rem', padding: '8px 0' }}>You marked this as resolved</p>;
+              return (
+                <div>
+                  <p style={{ textAlign: 'center', fontWeight: 700, color: 'var(--gs-forest)', margin: '0 0 10px 0', fontSize: '0.9rem' }}>Still there?</p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-primary" style={{ flex: 1, padding: '11px', fontSize: '0.9rem' }}
+                      disabled={alertVoteLoading}
+                      onClick={async () => {
+                        setAlertVoteLoading(true);
+                        try { await voteOnAlert(selectedAlert.id, 'confirm'); } catch (err) { console.error(err); }
+                        setAlertVoteLoading(false);
+                        setSelectedAlert(null);
+                      }}>
+                      {alertVoteLoading ? '…' : '🐾 Yes, still there'}
+                    </button>
+                    <button className="btn-secondary" style={{ flex: 1, padding: '11px', fontSize: '0.9rem' }}
+                      disabled={alertVoteLoading}
+                      onClick={async () => {
+                        setAlertVoteLoading(true);
+                        try { await voteOnAlert(selectedAlert.id, 'deny'); } catch (err) { console.error(err); }
+                        setAlertVoteLoading(false);
+                        setSelectedAlert(null);
+                      }}>
+                      {alertVoteLoading ? '…' : 'Nope, all clear'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* "STILL THERE?" PROMPT — proactive notification card, floats above bottom panel */}
+      {promptingAlertId && (() => {
+        const alert = activeAlerts.find((a) => a.id === promptingAlertId);
+        if (!alert) return null;
+        return (
+          <div style={{ position: 'fixed', bottom: '96px', left: '16px', right: '16px', zIndex: 20 }}>
+            <div className="gs-card slide-up" style={{ pointerEvents: 'auto', padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <span style={{ fontSize: '2rem', lineHeight: 1, flexShrink: 0 }}>{ALERT_EMOJI[alert.type] || '⚠️'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, color: 'var(--gs-forest)', fontSize: '0.875rem', margin: '0 0 2px 0' }}>
+                    {alert.type === 'custom' ? alert.customText : ALERT_LABEL[alert.type]}
+                  </p>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--gs-text-light)', margin: '0 0 10px 0' }}>
+                    near {alert.locationName} · {timeAgo(alert.createdAt)} · Still there?
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-primary" style={{ flex: 1, padding: '7px 10px', fontSize: '0.8rem' }}
+                      disabled={alertVoteLoading}
+                      onClick={async () => {
+                        setAlertVoteLoading(true);
+                        try { await voteOnAlert(alert.id, 'confirm'); } catch (err) { console.error(err); }
+                        setAlertVoteLoading(false);
+                        promptingAlertIdRef.current = null;
+                        setPromptingAlertId(null);
+                      }}>
+                      {alertVoteLoading ? '…' : '🐾 Yep, still there'}
+                    </button>
+                    <button className="btn-secondary" style={{ flex: 1, padding: '7px 10px', fontSize: '0.8rem' }}
+                      disabled={alertVoteLoading}
+                      onClick={async () => {
+                        setAlertVoteLoading(true);
+                        try { await voteOnAlert(alert.id, 'deny'); } catch (err) { console.error(err); }
+                        setAlertVoteLoading(false);
+                        promptingAlertIdRef.current = null;
+                        setPromptingAlertId(null);
+                      }}>
+                      {alertVoteLoading ? '…' : 'Nope, all clear'}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    dismissedAlertsRef.current.add(alert.id);
+                    promptingAlertIdRef.current = null;
+                    setPromptingAlertId(null);
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gs-text-light)', fontSize: '1.2rem', lineHeight: 1, flexShrink: 0, padding: '2px' }}
+                >×</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* "STILL SNIFFING?" PROMPT — 50-min check-in warning before auto-checkout */}
+      {showStillSniffing && myDog?.checkedIn && (
+        <div style={{ position: 'fixed', bottom: '96px', left: '16px', right: '16px', zIndex: 20 }}>
+          <div className="gs-card slide-up" style={{ padding: '16px 18px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '1.5rem', marginBottom: '6px' }}>🐾</p>
+              <p style={{ fontWeight: 700, color: 'var(--gs-forest)', fontSize: '0.95rem', margin: '0 0 4px 0' }}>
+                Still sniffing around?
+              </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: '0 0 14px 0' }}>
+                {myDog.name} has been checked in for 50 minutes.
+              </p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn-secondary flex-1"
+                  style={{ padding: '10px', fontSize: '0.85rem' }}
+                  onClick={handleCheckOut}
+                >
+                  We're leaving
+                </button>
+                <button
+                  className="btn-primary flex-1"
+                  style={{ padding: '10px', fontSize: '0.85rem' }}
+                  onClick={async () => {
+                    setShowStillSniffing(false);
+                    try { await extendCheckIn(myDog.id); }
+                    catch (err) { console.error('Failed to extend check-in:', err); }
+                  }}
+                >
+                  Yep, still here!
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FRENEMY WARNING MODAL — shown before finalizing check-in when a frenemy is nearby */}
+      {frenemyWarning && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(0,0,0,0.5)' }}>
+          <div className="gs-card bounce-in" style={{ maxWidth: '340px', width: '100%', textAlign: 'center' }}>
+            <p style={{ fontSize: '2rem', marginBottom: '8px' }}>⚠️</p>
+            <h3 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontWeight: 700, fontSize: '1.2rem', marginBottom: '10px' }}>
+              Heads up!
+            </h3>
+            <p style={{ color: 'var(--gs-forest)', lineHeight: 1.5, marginBottom: '6px', fontSize: '0.95rem' }}>
+              <strong>{frenemyWarning.dog.name}</strong> is checked in at{' '}
+              <strong>{frenemyWarning.dog.checkedInAt}</strong> right now.
+            </p>
+            <p style={{ color: 'var(--gs-text-light)', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '20px' }}>
+              {frenemyWarning.dog.name} is on your Frenemy Alert list.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn-secondary flex-1"
+                style={{ fontSize: '0.9rem' }}
+                onClick={() => {
+                  setFrenemyWarning(null);
+                  setShowCheckInPanel(false);
+                  setLocationName('');
+                  setCheckInVisibility('everyone');
+                }}
+              >
+                Not today
+              </button>
+              <button
+                className="btn-primary flex-1"
+                disabled={checkingIn}
+                style={{ fontSize: '0.9rem' }}
+                onClick={executeCheckIn}
+              >
+                {checkingIn ? 'Checking in...' : 'Check in anyway'}
+              </button>
+            </div>
           </div>
         </div>
       )}

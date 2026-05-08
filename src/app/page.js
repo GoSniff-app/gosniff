@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { PackProvider } from '@/lib/pack-context';
+import { AlertsProvider } from '@/lib/alerts-context';
 import JoinThePack from '@/components/JoinThePack';
 import SignIn from '@/components/SignIn';
 import MapView from '@/components/MapView';
@@ -71,7 +72,9 @@ export default function Home() {
   return (
     <AuthProvider>
       <PackProvider>
-        <AppContent />
+        <AlertsProvider>
+          <AppContent />
+        </AlertsProvider>
       </PackProvider>
     </AuthProvider>
   );

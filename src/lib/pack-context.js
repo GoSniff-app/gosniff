@@ -14,6 +14,8 @@ import {
   doc,
   getDoc,
   serverTimestamp,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 
 const PackContext = createContext({});
@@ -28,16 +30,19 @@ export function PackProvider({ children }) {
   const [myPack, setMyPack] = useState([]);
   const [pendingReceived, setPendingReceived] = useState([]);
   const [pendingSent, setPendingSent] = useState([]);
+  const [frenemyDogIds, setFrenemyDogIds] = useState([]);
 
   const linksUnsubRef = useRef(null);
   const receivedUnsubRef = useRef(null);
   const sentUnsubRef = useRef(null);
+  const humanDocUnsubRef = useRef(null);
 
   useEffect(() => {
     function cleanup() {
       if (linksUnsubRef.current) { linksUnsubRef.current(); linksUnsubRef.current = null; }
       if (receivedUnsubRef.current) { receivedUnsubRef.current(); receivedUnsubRef.current = null; }
       if (sentUnsubRef.current) { sentUnsubRef.current(); sentUnsubRef.current = null; }
+      if (humanDocUnsubRef.current) { humanDocUnsubRef.current(); humanDocUnsubRef.current = null; }
     }
 
     if (!user || !db) {
@@ -45,6 +50,7 @@ export function PackProvider({ children }) {
       setMyPack([]);
       setPendingReceived([]);
       setPendingSent([]);
+      setFrenemyDogIds([]);
       return;
     }
 
@@ -75,6 +81,14 @@ export function PackProvider({ children }) {
         where('status', '==', 'pending')
       ),
       (snapshot) => setPendingSent(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+
+    // Real-time listener: human doc for frenemyDogIds (private, stored on the human)
+    humanDocUnsubRef.current = onSnapshot(
+      doc(db, 'humans', user.uid),
+      (snap) => {
+        if (snap.exists()) setFrenemyDogIds(snap.data().frenemyDogIds || []);
+      }
     );
 
     return cleanup;
@@ -132,6 +146,20 @@ export function PackProvider({ children }) {
     await deleteDoc(doc(db, 'packLinks', linkId));
   }
 
+  async function addFrenemy(dogId) {
+    if (!user || !db) return;
+    await updateDoc(doc(db, 'humans', user.uid), {
+      frenemyDogIds: arrayUnion(dogId),
+    });
+  }
+
+  async function removeFrenemy(dogId) {
+    if (!user || !db) return;
+    await updateDoc(doc(db, 'humans', user.uid), {
+      frenemyDogIds: arrayRemove(dogId),
+    });
+  }
+
   function isInMyPack(dogId) {
     return myPack.some((link) => link.dogIds?.includes(dogId));
   }
@@ -149,6 +177,7 @@ export function PackProvider({ children }) {
     myPack,
     pendingReceived,
     pendingSent,
+    frenemyDogIds,
     sendPackRequest,
     acceptPackRequest,
     declinePackRequest,
@@ -156,6 +185,8 @@ export function PackProvider({ children }) {
     removeFromPack,
     isInMyPack,
     getPackRequestStatus,
+    addFrenemy,
+    removeFrenemy,
   };
 
   return <PackContext.Provider value={value}>{children}</PackContext.Provider>;
