@@ -1132,12 +1132,17 @@ export default function MapView() {
                     Remove Frenemy Alert
                   </button>
                 ) : (
-                  <button
-                    onClick={() => addFrenemy(selectedDog.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--gs-text-light)', textDecoration: 'underline', padding: '4px 8px' }}
-                  >
-                    + Frenemy Alert
-                  </button>
+                  <div>
+                    <button
+                      onClick={() => addFrenemy(selectedDog.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--gs-text-light)', textDecoration: 'underline', padding: '4px 8px 2px' }}
+                    >
+                      + Frenemy Alert
+                    </button>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--gs-text-light)', margin: '0 0 0 8px', lineHeight: 1.5, opacity: 0.75 }}>
+                      I don't like this dog. Warn my human if they're at the park so we can avoid. It's private — the other dog's human won't find out.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
