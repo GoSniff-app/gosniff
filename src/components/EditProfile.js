@@ -10,7 +10,7 @@ const BREEDS = [
   'Australian Cattle Dog', 'Australian Shepherd',
   'Basenji', 'Basset Hound', 'Beagle', 'Belgian Malinois',
   'Bernese Mountain Dog', 'Bichon Frise', 'Border Collie',
-  'Boston Terrier', 'Boxer', 'Brittany', 'Bulldog', 'Bull Terrier',
+  'Boston Terrier', 'Boxer', 'Brittany', 'Bull Terrier', 'Bulldog',
   'Cane Corso', 'Cavalier King Charles Spaniel', 'Chihuahua',
   'Chinese Crested', 'Chow Chow', 'Cocker Spaniel', 'Collie', 'Corgi',
   'Dachshund', 'Dalmatian', 'Doberman',
