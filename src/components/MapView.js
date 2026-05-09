@@ -435,7 +435,7 @@ export default function MapView() {
                     ? '3px solid #F97316'
                     : '3px solid var(--gs-green)',
                 position: 'relative',
-                zIndex: 1,
+                zIndex: dog.id === myDog?.id ? 0 : 1,
               }}
               onMouseDown={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
               onTouchStart={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
