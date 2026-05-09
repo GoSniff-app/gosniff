@@ -26,11 +26,7 @@ function DogRow({ dog }) {
         <p style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--gs-forest)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {dog?.name || '—'}
         </p>
-        {dog?.breed && (Array.isArray(dog.breed) ? dog.breed.length > 0 : true) && (
-          <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: '1px 0 0 0' }}>
-            {Array.isArray(dog.breed) ? dog.breed.join(' / ') : dog.breed}
-          </p>
-        )}
+        {dog?.breed && (() => { const b = Array.isArray(dog.breed) ? dog.breed.filter(x => x !== 'Other') : (dog.breed !== 'Other' ? [dog.breed] : []); return b.length > 0 ? <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: '1px 0 0 0' }}>{b.join(' / ')}</p> : null; })()}
       </div>
     </div>
   );
