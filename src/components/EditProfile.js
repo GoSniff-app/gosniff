@@ -51,9 +51,10 @@ export default function EditProfile({ dog, onClose }) {
   const { updateDog, deleteAccount } = useAuth();
   const [dogName, setDogName] = useState(dog.name || '');
   const [dogPhotoPreview, setDogPhotoPreview] = useState(dog.photoURL || null);
-  const [breed, setBreed] = useState(
-    Array.isArray(dog.breed) ? dog.breed : dog.breed ? [dog.breed] : []
-  );
+  const [breed, setBreed] = useState(() => {
+    const raw = Array.isArray(dog.breed) ? dog.breed : dog.breed ? [dog.breed] : [];
+    return raw.filter((b) => b !== 'Other');
+  });
   const [customBreed, setCustomBreed] = useState('');
   const [maxBreedMsg, setMaxBreedMsg] = useState(false);
   const [size, setSize] = useState(dog.size || '');
