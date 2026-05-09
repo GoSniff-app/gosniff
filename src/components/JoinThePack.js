@@ -5,12 +5,32 @@ import { useAuth } from '@/lib/auth-context';
 import PawLogo from './PawLogo';
 
 const BREEDS = [
-  'Mixed Breed', 'Labrador Retriever', 'Golden Retriever', 'German Shepherd',
-  'Bulldog', 'Poodle', 'Beagle', 'Rottweiler', 'Dachshund', 'Corgi',
-  'Husky', 'Boxer', 'Great Dane', 'Doberman', 'Australian Shepherd',
-  'Shih Tzu', 'Chihuahua', 'Pit Bull', 'Border Collie', 'Bernese Mountain Dog',
-  'French Bulldog', 'Cavalier King Charles', 'Cocker Spaniel', 'Pomeranian',
-  'Maltese', 'Yorkshire Terrier', 'Vizsla', 'Weimaraner', 'Greyhound',
+  'Mixed Breed',
+  'Akita', 'American Bulldog', 'American Staffordshire Terrier',
+  'Australian Cattle Dog', 'Australian Shepherd',
+  'Basenji', 'Basset Hound', 'Beagle', 'Belgian Malinois',
+  'Bernese Mountain Dog', 'Bichon Frise', 'Border Collie',
+  'Boston Terrier', 'Boxer', 'Brittany', 'Bulldog', 'Bull Terrier',
+  'Cane Corso', 'Cavalier King Charles Spaniel', 'Chihuahua',
+  'Chinese Crested', 'Chow Chow', 'Cocker Spaniel', 'Collie', 'Corgi',
+  'Dachshund', 'Dalmatian', 'Doberman',
+  'English Setter', 'English Springer Spaniel',
+  'French Bulldog',
+  'German Shepherd', 'German Shorthaired Pointer', 'Golden Retriever',
+  'Great Dane', 'Great Pyrenees', 'Greyhound',
+  'Havanese', 'Husky',
+  'Irish Setter', 'Italian Greyhound',
+  'Jack Russell Terrier',
+  'Labrador Retriever', 'Lhasa Apso',
+  'Maltese', 'Miniature Pinscher', 'Miniature Schnauzer',
+  'Newfoundland',
+  'Papillon', 'Pit Bull', 'Pomeranian', 'Poodle', 'Pug',
+  'Rhodesian Ridgeback', 'Rottweiler',
+  'Shar Pei', 'Shih Tzu', 'Standard Schnauzer',
+  'Terrier',
+  'Vizsla',
+  'Weimaraner', 'Whippet',
+  'Yorkshire Terrier',
 ];
 
 const SIZES = ['Small (under 25 lbs)', 'Medium (25-50 lbs)', 'Large (50-90 lbs)', 'XL (90+ lbs)'];
