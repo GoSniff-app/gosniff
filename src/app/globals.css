@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
-
 :root {
   /* PRIMARY: Teal — buttons, accents, selected states, links */
   --gs-teal: #0097A7;

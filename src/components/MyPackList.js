@@ -325,10 +325,13 @@ export default function MyPackList({ onClose, onOpenChat }) {
                         <button
                           title={`Message ${friend.name}`}
                           onClick={() => { onOpenChat(friend); onClose(); }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0, lineHeight: 0 }}
+                          style={{
+                            background: 'var(--gs-teal)', border: 'none', borderRadius: '8px',
+                            cursor: 'pointer', padding: '5px 8px', flexShrink: 0, lineHeight: 0,
+                          }}
                         >
-                          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <svg width="16" height="16" viewBox="0 0 20 20" fill="white" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" />
                           </svg>
                         </button>
                       )}
@@ -409,7 +412,6 @@ export default function MyPackList({ onClose, onOpenChat }) {
 
         {/* ── Share Pack Invite ── */}
         <div style={{ marginTop: '20px', borderTop: '1px solid var(--gs-gray-200, #e5e5e5)', paddingTop: '16px' }}>
-          <p style={sectionLabel}>Invite a Friend</p>
           <button
             onClick={handleShareInvite}
             style={{
@@ -426,10 +428,10 @@ export default function MyPackList({ onClose, onOpenChat }) {
               <circle cx="5" cy="10" r="2" stroke="var(--gs-green)" strokeWidth="1.6" />
               <path d="M7 9l6-4M7 11l6 4" stroke="var(--gs-green)" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
-            {copiedInvite ? '✓ Link Copied!' : 'Share Pack Invite'}
+            {copiedInvite ? '✓ Link Copied!' : 'Invite a Dog Friend'}
           </button>
           <p style={{ fontSize: '0.72rem', color: 'var(--gs-text-light)', textAlign: 'center', marginTop: '6px', lineHeight: 1.4 }}>
-            Friends who open your link can add {myDog?.name} to their pack instantly.
+            Share a link so they can join GoSniff and connect with {myDog?.name}.
           </p>
         </div>
       </div>

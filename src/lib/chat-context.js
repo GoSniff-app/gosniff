@@ -56,7 +56,8 @@ export function ChatProvider({ children }) {
         where('humanIds', 'array-contains', user.uid),
         orderBy('lastMessageTime', 'desc')
       ),
-      (snapshot) => setConversations(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+      (snapshot) => setConversations(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (err) => console.error('[ChatContext] conversations listener error:', err)
     );
 
     humanDocUnsubRef.current = onSnapshot(
@@ -157,7 +158,8 @@ export function ChatProvider({ children }) {
         collection(db, 'conversations', conversationId, 'messages'),
         orderBy('createdAt', 'asc')
       ),
-      (snapshot) => callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+      (snapshot) => callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (err) => console.error('[ChatContext] messages listener error:', err)
     );
   }
 

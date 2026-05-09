@@ -108,7 +108,7 @@ export default function MapView() {
   const { user, dogs, checkIn, checkOut, extendCheckIn, updateCheckIn, signOut, updateDog } = useAuth();
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
-  const { getOrCreateConversation } = useChat();
+  const { getOrCreateConversation, totalUnreadCount } = useChat();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -343,6 +343,7 @@ export default function MapView() {
     setPackActionLoading('chat');
     try {
       const convo = await getOrCreateConversation(myDog.id, otherDog.id);
+      if (!convo) throw new Error('Could not create conversation — check Firestore rules for the conversations collection.');
       setActiveConversationId(convo.id);
       setChatOtherDog(otherDog);
       setSelectedDog(null);
@@ -724,6 +725,23 @@ export default function MapView() {
             )}
           </button>
 
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowChatList(true), 50); }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--gs-forest)', transition: 'background 0.12s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f0faf7'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+            <span style={{ flex: 1 }}>Messages</span>
+            {totalUnreadCount > 0 && (
+              <span style={{ background: 'var(--gs-teal)', color: '#fff', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', lineHeight: '1.4' }}>
+                {totalUnreadCount}
+              </span>
+            )}
+          </button>
+
           <div style={{ height: '1px', background: 'var(--gs-gray-200, #e5e5e5)', margin: '6px 0' }} />
 
           <button
@@ -735,7 +753,7 @@ export default function MapView() {
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 16H3.5C2.94772 16 2.5 15.5523 2.5 15V3C2.5 2.44772 2.94772 2 3.5 2H7M12 12.5L16 9M16 9L12 5.5M16 9H7" stroke="var(--gs-coral)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Log Out
+            Sign Out
           </button>
         </div>
       )}
