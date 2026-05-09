@@ -3,10 +3,6 @@ import './globals.css';
 export const metadata = {
   title: 'GoSniff',
   description: "It's a Dog Meet Dog World. See which dogs are at the park right now.",
-  icons: {
-    icon: '/GoSniff_Logo.png',
-    apple: '/GoSniff_Logo.png',
-  },
 };
 
 export const viewport = {
