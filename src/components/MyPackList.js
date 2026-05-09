@@ -166,8 +166,8 @@ export default function MyPackList({ onClose, onOpenChat }) {
     if (!myDog) return;
     const url = `${window.location.origin}?addpack=${myDog.id}`;
     const shareData = {
-      title: 'GoSniff - Join my pack!',
-      text: `Add ${myDog.name} to your pack on GoSniff!`,
+      title: 'GoSniff',
+      text: `Come sniff around with ${myDog.name}!`,
       url,
     };
     try {

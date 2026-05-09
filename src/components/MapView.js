@@ -356,8 +356,8 @@ export default function MapView() {
   async function handleInvite() {
     const name = myDog?.name || 'My dog';
     const shareData = {
-      title: 'GoSniff - Dogs on the Map',
-      text: `${name} is on GoSniff! See which dogs are at the park right now and come hang out.`,
+      title: 'GoSniff',
+      text: `Come sniff around with ${name}!`,
       url: 'https://gosniff.app',
     };
     try {
