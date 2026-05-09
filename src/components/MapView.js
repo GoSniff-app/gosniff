@@ -11,6 +11,9 @@ import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
 import ReportAlertSheet from './ReportAlertSheet';
+import ChatView from './ChatView';
+import ChatList from './ChatList';
+import { useChat } from '@/lib/chat-context';
 
 const ALERT_EMOJI = {
   coyote: '🐺',
@@ -102,9 +105,10 @@ async function reverseGeocode(lat, lng) {
 }
 
 export default function MapView() {
-  const { user, dogs, checkIn, checkOut, extendCheckIn, signOut, updateDog } = useAuth();
+  const { user, dogs, checkIn, checkOut, extendCheckIn, updateCheckIn, signOut, updateDog } = useAuth();
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
+  const { getOrCreateConversation } = useChat();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -134,6 +138,10 @@ export default function MapView() {
   const [copied, setCopied] = useState(false);
   const [frenemyWarning, setFrenemyWarning] = useState(null);
   const [showStillSniffing, setShowStillSniffing] = useState(false);
+  const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const [chatOtherDog, setChatOtherDog] = useState(null);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+  const [showChatList, setShowChatList] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -219,11 +227,11 @@ export default function MapView() {
     mapRef.current = mapInstance;
   }, []);
 
-  function handleRefreshLocation() {
+  async function handleRefreshLocation() {
     if (!navigator.geolocation || refreshingLocation) return;
     setRefreshingLocation(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setGpsCoords(coords);
         setCenter(coords);
@@ -234,9 +242,20 @@ export default function MapView() {
           m.panTo(coords);
           m.setZoom(15);
         }
-        // Reset the 60-minute checkout timer so location refresh counts as activity
-        if (myDog?.checkedIn) extendCheckIn(myDog.id).catch(() => {});
-        setTimeout(() => setRefreshingLocation(false), 800);
+        if (myDog?.checkedIn) {
+          setDetectingLocation(true);
+          setIsUpdatingLocation(true);
+          setShowCheckInPanel(true);
+          setLocationName('');
+          setRefreshingLocation(false);
+          if (window.google && window.google.maps) {
+            const placeName = await reverseGeocode(coords.lat, coords.lng);
+            if (placeName) setLocationName(placeName);
+          }
+          setDetectingLocation(false);
+        } else {
+          setTimeout(() => setRefreshingLocation(false), 800);
+        }
       },
       (err) => {
         setRefreshingLocation(false);
@@ -286,10 +305,15 @@ export default function MapView() {
     if (!locationName.trim() || !hasLocation || !gpsCoords) return;
     setCheckingIn(true);
     try {
-      await checkIn(myDog.id, locationName.trim(), gpsCoords.lat, gpsCoords.lng, checkInVisibility);
+      if (isUpdatingLocation) {
+        await updateCheckIn(myDog.id, locationName.trim(), gpsCoords.lat, gpsCoords.lng);
+        setIsUpdatingLocation(false);
+      } else {
+        await checkIn(myDog.id, locationName.trim(), gpsCoords.lat, gpsCoords.lng, checkInVisibility);
+        setCheckInVisibility('everyone');
+      }
       setShowCheckInPanel(false);
       setLocationName('');
-      setCheckInVisibility('everyone');
       setFrenemyWarning(null);
     } catch (err) { console.error('Check-in failed:', err); }
     setCheckingIn(false);
@@ -297,12 +321,14 @@ export default function MapView() {
 
   async function handleCheckIn() {
     if (!locationName.trim() || !hasLocation || !gpsCoords) return;
-    const frenemyAtLocation = nearbyDogs.find(
-      (dog) => frenemyDogIds.includes(dog.id) && distanceMiles(gpsCoords, dog.checkedInLocation) <= 0.5
-    );
-    if (frenemyAtLocation) {
-      setFrenemyWarning({ dog: frenemyAtLocation });
-      return;
+    if (!isUpdatingLocation) {
+      const frenemyAtLocation = nearbyDogs.find(
+        (dog) => frenemyDogIds.includes(dog.id) && distanceMiles(gpsCoords, dog.checkedInLocation) <= 0.5
+      );
+      if (frenemyAtLocation) {
+        setFrenemyWarning({ dog: frenemyAtLocation });
+        return;
+      }
     }
     await executeCheckIn();
   }
@@ -310,6 +336,20 @@ export default function MapView() {
   async function handleCheckOut() {
     try { await checkOut(myDog.id); }
     catch (err) { console.error('Check-out failed:', err); }
+  }
+
+  async function openChat(otherDog) {
+    if (!myDog) return;
+    setPackActionLoading('chat');
+    try {
+      const convo = await getOrCreateConversation(myDog.id, otherDog.id);
+      setActiveConversationId(convo.id);
+      setChatOtherDog(otherDog);
+      setSelectedDog(null);
+    } catch (err) {
+      console.error('Failed to open chat:', err);
+    }
+    setPackActionLoading(null);
   }
 
   async function handleInvite() {
@@ -688,14 +728,14 @@ export default function MapView() {
 
           <button
             onClick={() => { signOut(); setShowMenu(false); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#9ca3af', transition: 'background 0.12s' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--gs-coral)', transition: 'background 0.12s' }}
             onMouseEnter={(e) => e.currentTarget.style.background = '#fff0f0'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 16H3.5C2.94772 16 2.5 15.5523 2.5 15V3C2.5 2.44772 2.94772 2 3.5 2H7M12 12.5L16 9M16 9L12 5.5M16 9H7" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7 16H3.5C2.94772 16 2.5 15.5523 2.5 15V3C2.5 2.44772 2.94772 2 3.5 2H7M12 12.5L16 9M16 9L12 5.5M16 9H7" stroke="var(--gs-coral)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Sign Out
+            Log Out
           </button>
         </div>
       )}
@@ -709,7 +749,32 @@ export default function MapView() {
 
       {showMyPack && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
-          <MyPackList onClose={() => setShowMyPack(false)} />
+          <MyPackList
+            onClose={() => setShowMyPack(false)}
+            onOpenChat={(dog) => { setShowMyPack(false); openChat(dog); }}
+          />
+        </div>
+      )}
+
+      {showChatList && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
+          <ChatList
+            myDog={myDog}
+            onOpenChat={(dog) => { setShowChatList(false); openChat(dog); }}
+            onOpenPack={() => { setShowChatList(false); setShowMyPack(true); }}
+            onClose={() => setShowChatList(false)}
+          />
+        </div>
+      )}
+
+      {chatOtherDog && activeConversationId && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
+          <ChatView
+            conversationId={activeConversationId}
+            myDog={myDog}
+            otherDog={chatOtherDog}
+            onBack={() => { setChatOtherDog(null); setActiveConversationId(null); }}
+          />
         </div>
       )}
 
@@ -788,7 +853,7 @@ export default function MapView() {
           </div>
         )}
 
-        {showCheckInPanel && !myDog?.checkedIn && (
+        {showCheckInPanel && (!myDog?.checkedIn || isUpdatingLocation) && (
           <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
             {locationError && (
               <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--gs-cream)', border: '1px solid var(--gs-warm)' }}>
@@ -804,7 +869,7 @@ export default function MapView() {
             {hasLocation && !detectingLocation && !locationError && (
               <>
                 <h3 className="font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
-                  {locationName ? 'Where exactly are you?' : 'Where are you?'}
+                  {isUpdatingLocation ? 'Update your spot' : (locationName ? 'Where exactly are you?' : 'Where are you?')}
                 </h3>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -826,51 +891,55 @@ export default function MapView() {
                   Tap to rename your spot (e.g. "The Pond" or "Big Dog Area")
                 </p>
 
-                {/* Visibility toggle */}
-                <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Who can see you?</p>
-                <div style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid var(--gs-gray-200, #e5e5e5)', marginBottom: '10px' }}>
-                  <button
-                    style={{
-                      flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
-                      border: 'none', cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
-                      background: checkInVisibility === 'everyone' ? 'var(--gs-teal)' : '#fff',
-                      color: checkInVisibility === 'everyone' ? '#fff' : 'var(--gs-text-light)',
-                    }}
-                    onClick={() => setCheckInVisibility('everyone')}
-                  >
-                    Visible to Everyone
-                  </button>
-                  <button
-                    style={{
-                      flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
-                      border: 'none', borderLeft: '1.5px solid var(--gs-gray-200, #e5e5e5)',
-                      cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
-                      background: checkInVisibility === 'friends' ? 'var(--gs-teal)' : '#fff',
-                      color: checkInVisibility === 'friends' ? '#fff' : 'var(--gs-text-light)',
-                    }}
-                    onClick={() => setCheckInVisibility('friends')}
-                  >
-                    Friends Only
-                  </button>
-                </div>
+                {/* Visibility toggle — hidden when updating an existing check-in */}
+                {!isUpdatingLocation && (
+                  <>
+                    <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Who can see you?</p>
+                    <div style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid var(--gs-gray-200, #e5e5e5)', marginBottom: '10px' }}>
+                      <button
+                        style={{
+                          flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                          border: 'none', cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
+                          background: checkInVisibility === 'everyone' ? 'var(--gs-teal)' : '#fff',
+                          color: checkInVisibility === 'everyone' ? '#fff' : 'var(--gs-text-light)',
+                        }}
+                        onClick={() => setCheckInVisibility('everyone')}
+                      >
+                        Visible to Everyone
+                      </button>
+                      <button
+                        style={{
+                          flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                          border: 'none', borderLeft: '1.5px solid var(--gs-gray-200, #e5e5e5)',
+                          cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
+                          background: checkInVisibility === 'friends' ? 'var(--gs-teal)' : '#fff',
+                          color: checkInVisibility === 'friends' ? '#fff' : 'var(--gs-text-light)',
+                        }}
+                        onClick={() => setCheckInVisibility('friends')}
+                      >
+                        Friends Only
+                      </button>
+                    </div>
 
-                {checkInVisibility === 'friends' && myPack.length === 0 && (
-                  <div className="mb-2" style={{ background: 'var(--gs-cream)', borderRadius: '10px', padding: '9px 12px' }}>
-                    <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5, margin: 0 }}>
-                      You don't have any pack members yet. Check in visible to everyone, or tap a dog on the map to add them to your pack first.
-                    </p>
-                  </div>
+                    {checkInVisibility === 'friends' && myPack.length === 0 && (
+                      <div className="mb-2" style={{ background: 'var(--gs-cream)', borderRadius: '10px', padding: '9px 12px' }}>
+                        <p className="text-xs" style={{ color: 'var(--gs-text-light)', lineHeight: 1.5, margin: 0 }}>
+                          You don't have any pack members yet. Check in visible to everyone, or tap a dog on the map to add them to your pack first.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
             <div className="flex gap-2">
-              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); setCheckInVisibility('everyone'); }}>Cancel</button>
+              <button className="btn-secondary flex-1 text-sm" onClick={() => { setShowCheckInPanel(false); setLocationName(''); setLocationError(null); setCheckInVisibility('everyone'); setIsUpdatingLocation(false); }}>Cancel</button>
               <button
                 className="btn-primary flex-1 text-sm"
                 disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
                 onClick={handleCheckIn}
               >
-                {checkingIn ? 'Checking in...' : 'Check In'}
+                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Spot' : 'Check In')}
               </button>
             </div>
           </div>
@@ -1039,17 +1108,24 @@ export default function MapView() {
                   );
                 }
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(45, 106, 79, 0.07)', borderRadius: '14px', border: '1.5px solid var(--gs-green)' }}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                      <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span style={{ flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--gs-forest)' }}>In Your Pack</span>
+                  <div>
                     <button
-                      onClick={() => setConfirmRemoveFromSheet(true)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-text-light)', padding: 0 }}
+                      className="btn-primary w-full"
+                      style={{ padding: '12px', fontSize: '0.95rem', marginBottom: '8px' }}
+                      disabled={packActionLoading === 'chat'}
+                      onClick={() => openChat(selectedDog)}
                     >
-                      Remove
+                      {packActionLoading === 'chat' ? '…' : `Say Hi to ${selectedDog.name}`}
                     </button>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--gs-green)', fontWeight: 600 }}>✓ In Your Pack</span>
+                      <button
+                        onClick={() => setConfirmRemoveFromSheet(true)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--gs-text-light)', padding: 0, textDecoration: 'underline' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 );
               }

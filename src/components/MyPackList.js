@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
 import PawLogo from './PawLogo';
@@ -34,19 +34,24 @@ function DogRow({ dog }) {
   );
 }
 
-export default function MyPackList({ onClose }) {
+export default function MyPackList({ onClose, onOpenChat }) {
   const { dogs } = useAuth();
   const myDog = dogs[0];
   const {
     myPack, pendingReceived, pendingSent,
-    acceptPackRequest, declinePackRequest, cancelPackRequest, removeFromPack,
+    acceptPackRequest, declinePackRequest, cancelPackRequest, removeFromPack, sendPackRequest,
   } = usePack();
 
   const [dogProfiles, setDogProfiles] = useState({});
   const [actionLoading, setActionLoading] = useState(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState(null);
 
-  // Fetch dog profiles for everyone in all three lists whenever the lists change.
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchActionLoading, setSearchActionLoading] = useState(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+
   useEffect(() => {
     const idsToFetch = new Set();
     myPack.forEach((link) => {
@@ -63,6 +68,56 @@ export default function MyPackList({ onClose }) {
       setDogProfiles(profiles);
     });
   }, [myPack, pendingReceived, pendingSent, myDog?.id]);
+
+  // Debounced dog name search
+  useEffect(() => {
+    const term = searchTerm.trim();
+    if (!term) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        // Query with exact case and capitalized first letter to cover common naming patterns
+        const termCap = term.charAt(0).toUpperCase() + term.slice(1).toLowerCase();
+        const variants = [term];
+        if (term !== termCap) variants.push(termCap);
+
+        const snaps = await Promise.all(
+          variants.map((v) =>
+            getDocs(query(collection(db, 'dogs'), where('name', '>=', v), where('name', '<=', v + ''), limit(10)))
+          )
+        );
+
+        const seen = new Set();
+        const results = [];
+        snaps.forEach((snap) => {
+          snap.docs.forEach((d) => {
+            if (!seen.has(d.id)) {
+              seen.add(d.id);
+              results.push({ id: d.id, ...d.data() });
+            }
+          });
+        });
+
+        const packDogIds = new Set(myPack.flatMap((l) => l.dogIds || []));
+        const sentDogIds = new Set(pendingSent.map((r) => r.toDogId));
+
+        setSearchResults(results.filter(
+          (dog) => dog.id !== myDog?.id && !packDogIds.has(dog.id) && !sentDogIds.has(dog.id)
+        ));
+      } catch (err) {
+        console.error('Dog search failed:', err);
+        setSearchResults([]);
+      }
+      setSearchLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, myPack, pendingSent, myDog?.id]);
 
   async function handleAccept(requestId) {
     setActionLoading(requestId);
@@ -93,6 +148,39 @@ export default function MyPackList({ onClose }) {
     setActionLoading(null);
   }
 
+  async function handleSendFromSearch(dogId) {
+    if (!myDog) return;
+    setSearchActionLoading(dogId);
+    try {
+      await sendPackRequest(myDog.id, dogId);
+      setSearchResults((prev) => prev.filter((d) => d.id !== dogId));
+    } catch (err) {
+      console.error('Failed to send pack request:', err);
+    }
+    setSearchActionLoading(null);
+  }
+
+  async function handleShareInvite() {
+    if (!myDog) return;
+    const url = `${window.location.origin}?addpack=${myDog.id}`;
+    const shareData = {
+      title: 'GoSniff - Join my pack!',
+      text: `Add ${myDog.name} to your pack on GoSniff!`,
+      url,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+    try { await navigator.clipboard.writeText(url); } catch (e) {}
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2000);
+  }
+
   const sectionLabel = {
     fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
     color: 'var(--gs-text-light)', margin: '0 0 10px 0',
@@ -118,6 +206,60 @@ export default function MyPackList({ onClose }) {
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--gs-text-light)', cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
+
+        {/* ── Find a Dog ── */}
+        <div style={{ marginBottom: '6px' }}>
+          <p style={sectionLabel}>Find a Dog</p>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              className="gs-input"
+              placeholder="Search by dog name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ paddingLeft: '36px' }}
+            />
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
+              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }}>
+              <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          {searchTerm.trim() && (
+            <div style={{ marginTop: '10px' }}>
+              {searchLoading ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', textAlign: 'center', padding: '8px 0', margin: 0 }}>
+                  Sniffing for "{searchTerm.trim()}"...
+                </p>
+              ) : searchResults.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', textAlign: 'center', padding: '8px 0', margin: 0 }}>
+                  No dogs named "{searchTerm.trim()}" found.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {searchResults.map((dog) => (
+                    <div key={dog.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <DogRow dog={dog} />
+                      </div>
+                      <button
+                        className="btn-primary"
+                        style={{ padding: '6px 14px', fontSize: '0.8rem', flexShrink: 0 }}
+                        disabled={searchActionLoading === dog.id}
+                        onClick={() => handleSendFromSearch(dog.id)}
+                      >
+                        {searchActionLoading === dog.id ? '…' : 'Add'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={{ borderBottom: '1px solid var(--gs-gray-200, #e5e5e5)', margin: '16px 0' }} />
 
         {/* ── Pending received requests ── */}
         {pendingReceived.length > 0 && (
@@ -161,7 +303,7 @@ export default function MyPackList({ onClose }) {
           <p style={sectionLabel}>Pack Members</p>
           {myPack.length === 0 ? (
             <p style={{ color: 'var(--gs-text-light)', fontSize: '0.875rem', textAlign: 'center', padding: '16px 0 4px' }}>
-              No pack members yet. Tap a dog on the map to send a pack request!
+              No pack members yet. Search above or tap a dog on the map!
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -179,9 +321,19 @@ export default function MyPackList({ onClose }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <DogRow dog={friend} />
                       </div>
-                      {/* Mute bell — placeholder for notification toggle (Step 6+) */}
+                      {onOpenChat && friend && (
+                        <button
+                          title={`Message ${friend.name}`}
+                          onClick={() => { onOpenChat(friend); onClose(); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0, lineHeight: 0 }}
+                        >
+                          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      )}
                       <button
-                        title="Notifications (coming soon)"
+                        title="Mute notifications (coming soon)"
                         style={{ background: 'none', border: 'none', cursor: 'default', padding: '4px', opacity: 0.3, flexShrink: 0 }}
                       >
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -198,7 +350,6 @@ export default function MyPackList({ onClose }) {
                       )}
                     </div>
 
-                    {/* Inline remove confirmation */}
                     {isConfirming && (
                       <div className="fade-in" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <p style={{ flex: 1, fontSize: '0.78rem', color: 'var(--gs-text-light)', margin: 0, lineHeight: 1.4 }}>
@@ -255,6 +406,32 @@ export default function MyPackList({ onClose }) {
             </div>
           </div>
         )}
+
+        {/* ── Share Pack Invite ── */}
+        <div style={{ marginTop: '20px', borderTop: '1px solid var(--gs-gray-200, #e5e5e5)', paddingTop: '16px' }}>
+          <p style={sectionLabel}>Invite a Friend</p>
+          <button
+            onClick={handleShareInvite}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              padding: '11px', borderRadius: '12px', border: '1.5px solid var(--gs-green)',
+              background: copiedInvite ? 'rgba(45,106,79,0.08)' : '#fff',
+              cursor: 'pointer', fontSize: '0.875rem', fontWeight: 700, color: 'var(--gs-forest)',
+              transition: 'background 0.15s',
+            }}
+          >
+            <svg width="17" height="17" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="15" cy="4" r="2" stroke="var(--gs-green)" strokeWidth="1.6" />
+              <circle cx="15" cy="16" r="2" stroke="var(--gs-green)" strokeWidth="1.6" />
+              <circle cx="5" cy="10" r="2" stroke="var(--gs-green)" strokeWidth="1.6" />
+              <path d="M7 9l6-4M7 11l6 4" stroke="var(--gs-green)" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            {copiedInvite ? '✓ Link Copied!' : 'Share Pack Invite'}
+          </button>
+          <p style={{ fontSize: '0.72rem', color: 'var(--gs-text-light)', textAlign: 'center', marginTop: '6px', lineHeight: 1.4 }}>
+            Friends who open your link can add {myDog?.name} to their pack instantly.
+          </p>
+        </div>
       </div>
     </div>
   );
