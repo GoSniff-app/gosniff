@@ -10,7 +10,7 @@ const BREEDS = [
   'Husky', 'Boxer', 'Great Dane', 'Doberman', 'Australian Shepherd',
   'Shih Tzu', 'Chihuahua', 'Pit Bull', 'Border Collie', 'Bernese Mountain Dog',
   'French Bulldog', 'Cavalier King Charles', 'Cocker Spaniel', 'Pomeranian',
-  'Maltese', 'Yorkshire Terrier', 'Vizsla', 'Weimaraner', 'Greyhound', 'Other',
+  'Maltese', 'Yorkshire Terrier', 'Vizsla', 'Weimaraner', 'Greyhound',
 ];
 
 const SIZES = ['Small (under 25 lbs)', 'Medium (25-50 lbs)', 'Large (50-90 lbs)', 'XL (90+ lbs)'];
@@ -51,8 +51,11 @@ export default function EditProfile({ dog, onClose }) {
   const { updateDog, deleteAccount } = useAuth();
   const [dogName, setDogName] = useState(dog.name || '');
   const [dogPhotoPreview, setDogPhotoPreview] = useState(dog.photoURL || null);
-  const [breed, setBreed] = useState(dog.breed || '');
-  const [breedSearch, setBreedSearch] = useState('');
+  const [breed, setBreed] = useState(
+    Array.isArray(dog.breed) ? dog.breed : dog.breed ? [dog.breed] : []
+  );
+  const [customBreed, setCustomBreed] = useState('');
+  const [maxBreedMsg, setMaxBreedMsg] = useState(false);
   const [size, setSize] = useState(dog.size || '');
   const [energy, setEnergy] = useState(
     Array.isArray(dog.energy) ? dog.energy : dog.energy ? [dog.energy] : []
@@ -71,6 +74,21 @@ export default function EditProfile({ dog, onClose }) {
       const compressed = await compressImage(file);
       setDogPhotoPreview(compressed);
     }
+  }
+
+  function toggleBreed(b) {
+    if (breed.includes(b)) { setBreed(breed.filter((x) => x !== b)); return; }
+    if (breed.length >= 2) { setMaxBreedMsg(true); setTimeout(() => setMaxBreedMsg(false), 1500); return; }
+    setBreed([...breed, b]);
+  }
+
+  function addCustomBreed() {
+    const val = customBreed.trim();
+    if (!val) return;
+    if (breed.includes(val)) { setCustomBreed(''); return; }
+    if (breed.length >= 2) { setMaxBreedMsg(true); setTimeout(() => setMaxBreedMsg(false), 1500); return; }
+    setBreed([...breed, val]);
+    setCustomBreed('');
   }
 
   async function handleSave() {
@@ -106,9 +124,6 @@ export default function EditProfile({ dog, onClose }) {
     }
   }
 
-  const filteredBreeds = breedSearch
-    ? BREEDS.filter((b) => b.toLowerCase().includes(breedSearch.toLowerCase()))
-    : BREEDS;
 
   if (saved) {
     return (
@@ -164,12 +179,30 @@ export default function EditProfile({ dog, onClose }) {
 
         {/* Breed */}
         <div className="mb-4">
-          <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Breed</label>
-          <input type="text" className="gs-input mb-2" placeholder="Search breeds..." value={breedSearch} onChange={(e) => setBreedSearch(e.target.value)} />
-          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-            {filteredBreeds.map((b) => (
-              <button key={b} className={'gs-chip ' + (breed === b ? 'selected' : '')} onClick={() => setBreed(b)}>{b}</button>
+          <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Breed <span style={{ fontWeight: 400, color: 'var(--gs-text-light)' }}>(pick up to 2)</span></label>
+          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto mb-2">
+            {BREEDS.map((b) => (
+              <button key={b} className={'gs-chip ' + (breed.includes(b) ? 'selected' : '')} onClick={() => toggleBreed(b)}>{b}</button>
             ))}
+          </div>
+          {maxBreedMsg && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--gs-coral)', margin: '0 0 6px' }}>2 breeds max</p>
+          )}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              className="gs-input"
+              placeholder="Breed not listed? Type it in"
+              value={customBreed}
+              onChange={(e) => setCustomBreed(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomBreed(); } }}
+              style={{ flex: 1 }}
+            />
+            {customBreed.trim() && (
+              <button className="btn-primary" style={{ padding: '10px 16px', fontSize: '0.875rem', flexShrink: 0 }} onClick={addCustomBreed}>
+                Add
+              </button>
+            )}
           </div>
         </div>
 
@@ -217,7 +250,7 @@ export default function EditProfile({ dog, onClose }) {
         {/* Save button */}
         <button
           className="btn-primary w-full mb-4"
-          disabled={!dogName.trim() || !breed || !size || energy.length === 0 || !gender || saving}
+          disabled={!dogName.trim() || breed.length === 0 || !size || energy.length === 0 || !gender || saving}
           onClick={handleSave}
         >
           {saving ? 'Saving...' : 'Save Changes'}

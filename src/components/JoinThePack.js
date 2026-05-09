@@ -10,7 +10,7 @@ const BREEDS = [
   'Husky', 'Boxer', 'Great Dane', 'Doberman', 'Australian Shepherd',
   'Shih Tzu', 'Chihuahua', 'Pit Bull', 'Border Collie', 'Bernese Mountain Dog',
   'French Bulldog', 'Cavalier King Charles', 'Cocker Spaniel', 'Pomeranian',
-  'Maltese', 'Yorkshire Terrier', 'Vizsla', 'Weimaraner', 'Greyhound', 'Other',
+  'Maltese', 'Yorkshire Terrier', 'Vizsla', 'Weimaraner', 'Greyhound',
 ];
 
 const SIZES = ['Small (under 25 lbs)', 'Medium (25-50 lbs)', 'Large (50-90 lbs)', 'XL (90+ lbs)'];
@@ -55,8 +55,9 @@ export default function JoinThePack() {
   const [dogName, setDogName] = useState('');
   const [dogPhoto, setDogPhoto] = useState(null);
   const [dogPhotoPreview, setDogPhotoPreview] = useState(null);
-  const [breed, setBreed] = useState('');
-  const [breedSearch, setBreedSearch] = useState('');
+  const [breed, setBreed] = useState([]);
+  const [customBreed, setCustomBreed] = useState('');
+  const [maxBreedMsg, setMaxBreedMsg] = useState(false);
   const [size, setSize] = useState('');
   const [energy, setEnergy] = useState([]);
   const [gender, setGender] = useState('');
@@ -73,6 +74,21 @@ export default function JoinThePack() {
       const compressed = await compressImage(file);
       setDogPhotoPreview(compressed);
     }
+  }
+
+  function toggleBreed(b) {
+    if (breed.includes(b)) { setBreed(breed.filter((x) => x !== b)); return; }
+    if (breed.length >= 2) { setMaxBreedMsg(true); setTimeout(() => setMaxBreedMsg(false), 1500); return; }
+    setBreed([...breed, b]);
+  }
+
+  function addCustomBreed() {
+    const val = customBreed.trim();
+    if (!val) return;
+    if (breed.includes(val)) { setCustomBreed(''); return; }
+    if (breed.length >= 2) { setMaxBreedMsg(true); setTimeout(() => setMaxBreedMsg(false), 1500); return; }
+    setBreed([...breed, val]);
+    setCustomBreed('');
   }
 
   async function handleSubmit() {
@@ -98,9 +114,6 @@ export default function JoinThePack() {
     }
   }
 
-  const filteredBreeds = breedSearch
-    ? BREEDS.filter((b) => b.toLowerCase().includes(breedSearch.toLowerCase()))
-    : BREEDS;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 paw-pattern" style={{ background: 'var(--gs-bg)' }}>
@@ -162,16 +175,35 @@ export default function JoinThePack() {
           <div className="fade-in">
             <div className="text-center mb-4">
               <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>What kind of pup is {dogName}?</h2>
+              <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: 0 }}>Pick up to 2</p>
             </div>
-            <input type="text" className="gs-input mb-3" placeholder="Search breeds..." value={breedSearch} onChange={(e) => setBreedSearch(e.target.value)} autoFocus />
             <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pb-2">
-              {filteredBreeds.map((b) => (
-                <button key={b} className={'gs-chip ' + (breed === b ? 'selected' : '')} onClick={() => setBreed(b)}>{b}</button>
+              {BREEDS.map((b) => (
+                <button key={b} className={'gs-chip ' + (breed.includes(b) ? 'selected' : '')} onClick={() => toggleBreed(b)}>{b}</button>
               ))}
+            </div>
+            {maxBreedMsg && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--gs-coral)', textAlign: 'center', margin: '6px 0 0' }}>2 breeds max</p>
+            )}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <input
+                type="text"
+                className="gs-input"
+                placeholder="Breed not listed? Type it in"
+                value={customBreed}
+                onChange={(e) => setCustomBreed(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomBreed(); } }}
+                style={{ flex: 1 }}
+              />
+              {customBreed.trim() && (
+                <button className="btn-primary" style={{ padding: '10px 16px', fontSize: '0.875rem', flexShrink: 0 }} onClick={addCustomBreed}>
+                  Add
+                </button>
+              )}
             </div>
             <div className="flex gap-3 mt-6">
               <button className="btn-secondary flex-1" onClick={() => setStep(2)}>Back</button>
-              <button className="btn-primary flex-1" disabled={!breed} onClick={() => setStep(4)}>Next</button>
+              <button className="btn-primary flex-1" disabled={breed.length === 0} onClick={() => setStep(4)}>Next</button>
             </div>
           </div>
         )}

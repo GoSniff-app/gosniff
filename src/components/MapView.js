@@ -680,7 +680,7 @@ export default function MapView() {
             </div>
             <div>
               <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--gs-forest)', margin: 0 }}>{myDog?.name}</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: 0 }}>{myDog?.breed}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: 0 }}>{Array.isArray(myDog?.breed) ? myDog.breed.join(' / ') : myDog?.breed}</p>
             </div>
           </div>
           {/* Menu items */}
@@ -1069,7 +1069,7 @@ export default function MapView() {
                   {selectedDog.name}
                 </h3>
                 <p style={{ color: 'var(--gs-text-light)', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-                  {selectedDog.breed} · {selectedDog.gender} · {selectedDog.age || 'Age unknown'}
+                  {Array.isArray(selectedDog.breed) ? selectedDog.breed.join(' / ') : selectedDog.breed} · {selectedDog.gender} · {selectedDog.age || 'Age unknown'}
                 </p>
                 {selectedDog.checkedInAt && (
                   <p style={{ color: 'var(--gs-green)', fontSize: '0.85rem', fontWeight: 600, margin: '4px 0 0 0' }}>
