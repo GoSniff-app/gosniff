@@ -333,14 +333,6 @@ export default function MyPackList({ onClose, onOpenChat }) {
                           </svg>
                         </button>
                       )}
-                      <button
-                        title="Mute notifications (coming soon)"
-                        style={{ background: 'none', border: 'none', cursor: 'default', padding: '4px', opacity: 0.3, flexShrink: 0 }}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M10 2a6 6 0 0 0-6 6v3l-1.5 1.5V14h15v-1.5L16 11V8a6 6 0 0 0-6-6zM10 18a2 2 0 0 0 2-2H8a2 2 0 0 0 2 2z" fill="var(--gs-text-light)" />
-                        </svg>
-                      </button>
                       {!isConfirming && (
                         <button
                           onClick={() => setConfirmRemoveId(link.id)}
