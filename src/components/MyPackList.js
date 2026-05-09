@@ -410,8 +410,11 @@ export default function MyPackList({ onClose, onOpenChat }) {
           </div>
         )}
 
-        {/* ── Share Pack Invite ── */}
+        {/* ── Invite ── */}
         <div style={{ marginTop: '20px', borderTop: '1px solid var(--gs-gray-200, #e5e5e5)', paddingTop: '16px' }}>
+          <p style={{ fontFamily: "'Fredoka', sans-serif", fontSize: '1rem', fontWeight: 600, color: 'var(--gs-forest)', textAlign: 'center', margin: '0 0 10px' }}>
+            Wanna sniff my butt?
+          </p>
           <button
             onClick={handleShareInvite}
             style={{
@@ -428,7 +431,7 @@ export default function MyPackList({ onClose, onOpenChat }) {
               <circle cx="5" cy="10" r="2" stroke="var(--gs-green)" strokeWidth="1.6" />
               <path d="M7 9l6-4M7 11l6 4" stroke="var(--gs-green)" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
-            {copiedInvite ? '✓ Link Copied!' : 'Invite a Dog Friend'}
+            {copiedInvite ? '✓ Link Copied!' : 'Invite a dog friend'}
           </button>
           <p style={{ fontSize: '0.72rem', color: 'var(--gs-text-light)', textAlign: 'center', marginTop: '6px', lineHeight: 1.4 }}>
             Share a link so they can join GoSniff and connect with {myDog?.name}.

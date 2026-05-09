@@ -514,7 +514,7 @@ export default function MapView() {
               style={{ fontSize: '0.875rem' }}
               onClick={handleInvite}
             >
-              {copied ? '✓ Link copied!' : 'Invite Your Dog Friends'}
+              {copied ? '✓ Link copied!' : 'Invite a dog friend'}
             </button>
           </div>
         </div>
