@@ -107,7 +107,7 @@ export function ChatProvider({ children }) {
       dogIds: [myDogId, theirDogId].sort(),
       humanIds: [myHumanId, theirHumanId].sort(),
       lastMessage: null,
-      lastMessageTime: null,
+      lastMessageTime: serverTimestamp(),
       lastMessageFrom: null,
     };
 
