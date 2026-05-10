@@ -804,18 +804,18 @@ export default function MapView() {
             pointerEvents: 'auto',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '8px 12px',
+            gap: '8px',
+            padding: '12px 14px',
             marginBottom: '8px',
             background: '#fff',
-            borderRadius: '14px',
+            borderRadius: '16px',
             boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
             border: '1px solid rgba(0,0,0,0.06)',
           }}>
             <p style={{
               flex: 1,
               fontWeight: 600,
-              fontSize: '0.78rem',
+              fontSize: '0.82rem',
               color: 'var(--gs-forest)',
               margin: 0,
               whiteSpace: 'nowrap',
@@ -825,33 +825,33 @@ export default function MapView() {
             }}>
               {myDog.checkedInAt}
             </p>
-            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'stretch' }}>
               <button
                 onClick={handleRefreshLocation}
                 disabled={refreshingLocation}
                 style={{
                   background: 'rgba(0,148,163,0.06)',
                   border: '1px solid rgba(0,148,163,0.3)',
-                  borderRadius: '20px', padding: '4px 7px',
-                  fontSize: '0.7rem', fontWeight: 600,
+                  borderRadius: '12px', padding: '6px 10px',
+                  fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
                   color: 'var(--gs-teal)', cursor: refreshingLocation ? 'wait' : 'pointer',
-                  whiteSpace: 'nowrap', lineHeight: 1.4,
+                  textAlign: 'center',
                 }}
               >
-                {refreshingLocation ? '…' : '↻ Update Location'}
+                {refreshingLocation ? '…' : <>↻ Update<br />Location</>}
               </button>
               <button
                 onClick={handleCheckOut}
                 style={{
                   background: 'rgba(0,0,0,0.04)',
                   border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: '20px', padding: '4px 7px',
-                  fontSize: '0.7rem', fontWeight: 600,
+                  borderRadius: '12px', padding: '6px 10px',
+                  fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
                   color: '#6b7280', cursor: 'pointer',
-                  whiteSpace: 'nowrap', lineHeight: 1.4,
+                  textAlign: 'center',
                 }}
               >
-                ✕ Leave Location
+                ✕ Leave<br />Location
               </button>
               {gpsCoords && (
                 <button
@@ -859,10 +859,10 @@ export default function MapView() {
                   style={{
                     background: 'rgba(245,158,11,0.08)',
                     border: '1px solid rgba(245,158,11,0.4)',
-                    borderRadius: '20px', padding: '4px 7px',
-                    fontSize: '0.7rem', fontWeight: 600,
+                    borderRadius: '12px', padding: '6px 10px',
+                    fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
                     color: '#92400e', cursor: 'pointer',
-                    whiteSpace: 'nowrap', lineHeight: 1.4,
+                    whiteSpace: 'nowrap', textAlign: 'center',
                   }}
                 >
                   ⚠ Alert
@@ -873,10 +873,10 @@ export default function MapView() {
                 style={{
                   background: 'rgba(0,0,0,0.04)',
                   border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: '20px', padding: '4px 7px',
-                  fontSize: '0.7rem', fontWeight: 600,
+                  borderRadius: '12px', padding: '6px 10px',
+                  fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
                   color: '#6b7280', cursor: 'pointer',
-                  whiteSpace: 'nowrap', lineHeight: 1.4,
+                  whiteSpace: 'nowrap', textAlign: 'center',
                 }}
               >
                 Sign Out
