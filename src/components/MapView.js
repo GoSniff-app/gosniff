@@ -378,7 +378,7 @@ export default function MapView() {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in">
-          <PawLogo size={60} className="mx-auto mb-3" animate />
+          <PawLogo size={100} className="mx-auto mb-3" animate />
           <p style={{ color: 'var(--gs-green)', fontWeight: 600 }}>Loading map...</p>
         </div>
       </div>

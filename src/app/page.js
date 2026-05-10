@@ -60,7 +60,7 @@ function AppContent() {
     return (
       <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gs-bg)' }} className="paw-pattern">
         <div style={{ textAlign: 'center' }} className="fade-in">
-          <PawLogo size={72} className="mx-auto mb-4" animate />
+          <PawLogo size={110} className="mx-auto mb-4" animate />
           <h1 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontSize: '1.875rem', fontWeight: 700, marginBottom: '4px' }}>GoSniff</h1>
           <p style={{ color: 'var(--gs-text-light)', fontSize: '0.875rem' }}>Loading your pack...</p>
         </div>
