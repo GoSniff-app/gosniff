@@ -53,10 +53,17 @@ export function ChatProvider({ children }) {
     convoUnsubRef.current = onSnapshot(
       query(
         collection(db, 'conversations'),
-        where('humanIds', 'array-contains', user.uid),
-        orderBy('lastMessageTime', 'desc')
+        where('humanIds', 'array-contains', user.uid)
       ),
-      (snapshot) => setConversations(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (snapshot) => {
+        const convos = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        convos.sort((a, b) => {
+          const aMs = a.lastMessageTime?.toMillis?.() ?? 0;
+          const bMs = b.lastMessageTime?.toMillis?.() ?? 0;
+          return bMs - aMs;
+        });
+        setConversations(convos);
+      },
       (err) => console.error('[ChatContext] conversations listener error:', err)
     );
 
@@ -84,7 +91,11 @@ export function ChatProvider({ children }) {
     const convoSnap = await getDoc(convoRef);
 
     if (convoSnap.exists()) {
-      return { id: conversationId, ...convoSnap.data() };
+      const data = convoSnap.data();
+      if (!data.lastMessageTime) {
+        updateDoc(convoRef, { lastMessageTime: serverTimestamp() }).catch(() => {});
+      }
+      return { id: conversationId, ...data };
     }
 
     const [myDogSnap, theirDogSnap] = await Promise.all([
