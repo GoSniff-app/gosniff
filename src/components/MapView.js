@@ -812,20 +812,7 @@ export default function MapView() {
             boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
             border: '1px solid rgba(0,0,0,0.06)',
           }}>
-            <p style={{
-              flex: 1,
-              fontWeight: 600,
-              fontSize: '0.82rem',
-              color: 'var(--gs-forest)',
-              margin: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              minWidth: 0,
-            }}>
-              {myDog.checkedInAt}
-            </p>
-            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', gap: '6px', flex: 1, alignItems: 'stretch', justifyContent: 'space-between' }}>
               <button
                 onClick={handleRefreshLocation}
                 disabled={refreshingLocation}
