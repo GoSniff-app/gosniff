@@ -838,7 +838,7 @@ export default function MapView() {
                   whiteSpace: 'nowrap', lineHeight: 1.4,
                 }}
               >
-                {refreshingLocation ? '…' : '↻ Update'}
+                {refreshingLocation ? '…' : '↻ Update Location'}
               </button>
               <button
                 onClick={handleCheckOut}
@@ -851,7 +851,7 @@ export default function MapView() {
                   whiteSpace: 'nowrap', lineHeight: 1.4,
                 }}
               >
-                ✕ Leave
+                ✕ Leave Location
               </button>
               {gpsCoords && (
                 <button
