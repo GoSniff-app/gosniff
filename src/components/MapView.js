@@ -872,43 +872,6 @@ export default function MapView() {
           </div>
         )}
 
-        {showSignOutConfirm && (
-          <div
-            className="fixed inset-0 flex items-center justify-center"
-            style={{ zIndex: 400, background: 'rgba(0,0,0,0.35)' }}
-            onClick={() => setShowSignOutConfirm(false)}
-          >
-            <div
-              className="gs-card fade-in"
-              style={{ maxWidth: '300px', width: 'calc(100% - 48px)', textAlign: 'center' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p style={{ fontFamily: "'Fredoka', sans-serif", fontSize: '1.1rem', fontWeight: 700, color: 'var(--gs-forest)', margin: '0 0 6px' }}>
-                Sign out of GoSniff?
-              </p>
-              <p style={{ fontSize: '0.82rem', color: 'var(--gs-text-light)', margin: '0 0 18px', lineHeight: 1.4 }}>
-                You'll be checked out automatically.
-              </p>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  className="btn-secondary"
-                  style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
-                  onClick={() => setShowSignOutConfirm(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn-secondary"
-                  style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--gs-coral)', borderColor: 'rgba(212,63,47,0.3)' }}
-                  onClick={() => { setShowSignOutConfirm(false); signOut(); }}
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {showCheckInPanel && (!myDog?.checkedIn || isUpdatingLocation) && (
           <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
             {locationError && (
@@ -1432,6 +1395,43 @@ export default function MapView() {
                 onClick={executeCheckIn}
               >
                 {checkingIn ? 'Checking in...' : 'Check in anyway'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIGN OUT CONFIRMATION MODAL */}
+      {showSignOutConfirm && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setShowSignOutConfirm(false)}
+        >
+          <div
+            className="gs-card fade-in"
+            style={{ maxWidth: '300px', width: '100%', textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontFamily: "'Fredoka', sans-serif", fontSize: '1.2rem', fontWeight: 700, color: 'var(--gs-forest)', margin: '0 0 6px' }}>
+              Sign out of GoSniff?
+            </p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--gs-text-light)', margin: '0 0 20px', lineHeight: 1.4 }}>
+              See you on your next sniff!
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="btn-secondary"
+                style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
+                onClick={() => setShowSignOutConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 700, background: 'var(--gs-coral)', borderColor: 'var(--gs-coral)' }}
+                onClick={() => { setShowSignOutConfirm(false); signOut(); }}
+              >
+                Sign Out
               </button>
             </div>
           </div>
