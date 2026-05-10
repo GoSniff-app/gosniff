@@ -6,6 +6,7 @@ import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/
 import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
 import PawLogo from './PawLogo';
+import PackMemberDetail from './PackMemberDetail';
 
 function DogRow({ dog }) {
   return (
@@ -37,12 +38,12 @@ export default function MyPackList({ onClose, onOpenChat }) {
   const myDog = dogs[0];
   const {
     myPack, pendingReceived, pendingSent,
-    acceptPackRequest, declinePackRequest, cancelPackRequest, removeFromPack, sendPackRequest,
+    acceptPackRequest, declinePackRequest, cancelPackRequest, sendPackRequest,
   } = usePack();
 
   const [dogProfiles, setDogProfiles] = useState({});
   const [actionLoading, setActionLoading] = useState(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState(null);
+  const [selectedLink, setSelectedLink] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -138,14 +139,6 @@ export default function MyPackList({ onClose, onOpenChat }) {
     setActionLoading(null);
   }
 
-  async function handleRemove(linkId) {
-    setActionLoading(linkId);
-    try { await removeFromPack(linkId); }
-    catch (err) { console.error('Failed to remove from pack:', err); }
-    setConfirmRemoveId(null);
-    setActionLoading(null);
-  }
-
   async function handleSendFromSearch(dogId) {
     if (!myDog) return;
     setSearchActionLoading(dogId);
@@ -184,7 +177,12 @@ export default function MyPackList({ onClose, onOpenChat }) {
     color: 'var(--gs-text-light)', margin: '0 0 10px 0',
   };
 
+  const selectedFriend = selectedLink
+    ? dogProfiles[selectedLink.dogIds?.find((id) => id !== myDog?.id)]
+    : null;
+
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
       <div
@@ -308,13 +306,18 @@ export default function MyPackList({ onClose, onOpenChat }) {
               {myPack.map((link) => {
                 const friendDogId = link.dogIds?.find((id) => id !== myDog?.id);
                 const friend = dogProfiles[friendDogId];
-                const isConfirming = confirmRemoveId === link.id;
                 return (
-                  <div key={link.id} style={{
-                    borderRadius: '12px', padding: '8px',
-                    background: isConfirming ? 'var(--gs-cream, #fef9ef)' : 'transparent',
-                    transition: 'background 0.15s',
-                  }}>
+                  <div
+                    key={link.id}
+                    onClick={() => friend && setSelectedLink(link)}
+                    style={{
+                      borderRadius: '12px', padding: '8px',
+                      cursor: friend ? 'pointer' : 'default',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => { if (friend) e.currentTarget.style.background = 'var(--gs-gray-100)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <DogRow dog={friend} />
@@ -322,7 +325,7 @@ export default function MyPackList({ onClose, onOpenChat }) {
                       {onOpenChat && friend && (
                         <button
                           title={`Message ${friend.name}`}
-                          onClick={() => { onOpenChat(friend); onClose(); }}
+                          onClick={(e) => { e.stopPropagation(); onOpenChat(friend); onClose(); }}
                           style={{
                             background: 'var(--gs-teal)', border: 'none', borderRadius: '8px',
                             cursor: 'pointer', padding: '5px 8px', flexShrink: 0, lineHeight: 0,
@@ -333,41 +336,7 @@ export default function MyPackList({ onClose, onOpenChat }) {
                           </svg>
                         </button>
                       )}
-                      {!isConfirming && (
-                        <button
-                          onClick={() => setConfirmRemoveId(link.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, color: 'var(--gs-text-light)', flexShrink: 0, padding: '4px 2px' }}
-                        >
-                          Remove
-                        </button>
-                      )}
                     </div>
-
-                    {isConfirming && (
-                      <div className="fade-in" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <p style={{ flex: 1, fontSize: '0.78rem', color: 'var(--gs-text-light)', margin: 0, lineHeight: 1.4 }}>
-                          Remove {friend?.name || 'this dog'} from your pack?
-                        </p>
-                        <button
-                          className="btn-secondary"
-                          style={{ padding: '5px 12px', fontSize: '0.78rem', flexShrink: 0 }}
-                          onClick={() => setConfirmRemoveId(null)}
-                        >
-                          Keep
-                        </button>
-                        <button
-                          style={{
-                            padding: '5px 12px', fontSize: '0.78rem', fontWeight: 700,
-                            background: 'var(--gs-coral, #FF6B6B)', color: '#fff',
-                            border: 'none', borderRadius: '10px', cursor: 'pointer', flexShrink: 0,
-                          }}
-                          disabled={actionLoading === link.id}
-                          onClick={() => handleRemove(link.id)}
-                        >
-                          {actionLoading === link.id ? '…' : 'Remove'}
-                        </button>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -429,5 +398,14 @@ export default function MyPackList({ onClose, onOpenChat }) {
         </div>
       </div>
     </div>
+    {selectedLink && selectedFriend && (
+      <PackMemberDetail
+        dog={selectedFriend}
+        link={selectedLink}
+        onClose={() => setSelectedLink(null)}
+        onOpenChat={onOpenChat}
+      />
+    )}
+    </>
   );
 }
