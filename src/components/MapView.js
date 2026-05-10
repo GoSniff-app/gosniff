@@ -132,6 +132,7 @@ export default function MapView() {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [refreshingLocation, setRefreshingLocation] = useState(false);
   const [showReportAlert, setShowReportAlert] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [alertVoteLoading, setAlertVoteLoading] = useState(false);
   const [dismissedAlertIds, setDismissedAlertIds] = useState([]);
@@ -422,7 +423,7 @@ export default function MapView() {
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
@@ -803,7 +804,7 @@ export default function MapView() {
             pointerEvents: 'auto',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '6px',
             padding: '8px 12px',
             marginBottom: '8px',
             background: '#fff',
@@ -822,16 +823,43 @@ export default function MapView() {
               textOverflow: 'ellipsis',
               minWidth: 0,
             }}>
-              {myDog.name} · {myDog.checkedInAt}
+              {myDog.checkedInAt}
             </p>
-            <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+              <button
+                onClick={handleRefreshLocation}
+                disabled={refreshingLocation}
+                style={{
+                  background: 'rgba(0,148,163,0.06)',
+                  border: '1px solid rgba(0,148,163,0.3)',
+                  borderRadius: '20px', padding: '4px 7px',
+                  fontSize: '0.7rem', fontWeight: 600,
+                  color: 'var(--gs-teal)', cursor: refreshingLocation ? 'wait' : 'pointer',
+                  whiteSpace: 'nowrap', lineHeight: 1.4,
+                }}
+              >
+                {refreshingLocation ? '…' : '↻ Update'}
+              </button>
+              <button
+                onClick={handleCheckOut}
+                style={{
+                  background: 'rgba(0,0,0,0.04)',
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: '20px', padding: '4px 7px',
+                  fontSize: '0.7rem', fontWeight: 600,
+                  color: '#6b7280', cursor: 'pointer',
+                  whiteSpace: 'nowrap', lineHeight: 1.4,
+                }}
+              >
+                ✕ Leave
+              </button>
               {gpsCoords && (
                 <button
                   onClick={() => setShowReportAlert(true)}
                   style={{
                     background: 'rgba(245,158,11,0.08)',
                     border: '1px solid rgba(245,158,11,0.4)',
-                    borderRadius: '20px', padding: '4px 9px',
+                    borderRadius: '20px', padding: '4px 7px',
                     fontSize: '0.7rem', fontWeight: 600,
                     color: '#92400e', cursor: 'pointer',
                     whiteSpace: 'nowrap', lineHeight: 1.4,
@@ -841,32 +869,55 @@ export default function MapView() {
                 </button>
               )}
               <button
-                onClick={handleRefreshLocation}
-                disabled={refreshingLocation}
-                style={{
-                  background: 'rgba(0,148,163,0.06)',
-                  border: '1px solid rgba(0,148,163,0.3)',
-                  borderRadius: '20px', padding: '4px 9px',
-                  fontSize: '0.7rem', fontWeight: 600,
-                  color: 'var(--gs-teal)', cursor: refreshingLocation ? 'wait' : 'pointer',
-                  whiteSpace: 'nowrap', lineHeight: 1.4,
-                }}
-              >
-                {refreshingLocation ? '…' : '↻ Refresh'}
-              </button>
-              <button
-                onClick={handleCheckOut}
+                onClick={() => setShowSignOutConfirm(true)}
                 style={{
                   background: 'rgba(0,0,0,0.04)',
                   border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: '20px', padding: '4px 9px',
+                  borderRadius: '20px', padding: '4px 7px',
                   fontSize: '0.7rem', fontWeight: 600,
                   color: '#6b7280', cursor: 'pointer',
                   whiteSpace: 'nowrap', lineHeight: 1.4,
                 }}
               >
-                ✕ Leave
+                Sign Out
               </button>
+            </div>
+          </div>
+        )}
+
+        {showSignOutConfirm && (
+          <div
+            className="fixed inset-0 flex items-center justify-center"
+            style={{ zIndex: 400, background: 'rgba(0,0,0,0.35)' }}
+            onClick={() => setShowSignOutConfirm(false)}
+          >
+            <div
+              className="gs-card fade-in"
+              style={{ maxWidth: '300px', width: 'calc(100% - 48px)', textAlign: 'center' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={{ fontFamily: "'Fredoka', sans-serif", fontSize: '1.1rem', fontWeight: 700, color: 'var(--gs-forest)', margin: '0 0 6px' }}>
+                Sign out of GoSniff?
+              </p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--gs-text-light)', margin: '0 0 18px', lineHeight: 1.4 }}>
+                You'll be checked out automatically.
+              </p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="btn-secondary"
+                  style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
+                  onClick={() => setShowSignOutConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-secondary"
+                  style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--gs-coral)', borderColor: 'rgba(212,63,47,0.3)' }}
+                  onClick={() => { setShowSignOutConfirm(false); signOut(); }}
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -957,7 +1008,7 @@ export default function MapView() {
                 disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
                 onClick={handleCheckIn}
               >
-                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Spot' : 'Check In')}
+                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Location' : 'Check In')}
               </button>
             </div>
           </div>
