@@ -190,6 +190,7 @@ export default function MapView() {
 
       if (remainingForCheckout <= 0) {
         checkOut(myDog.id);
+        setDismissedEmptyMap(false);
         return;
       }
 
@@ -199,7 +200,7 @@ export default function MapView() {
       } else {
         stillSniffingPromptRef.current = setTimeout(() => setShowStillSniffing(true), remainingForPrompt);
       }
-      autoCheckoutRef.current = setTimeout(() => checkOut(myDog.id), remainingForCheckout);
+      autoCheckoutRef.current = setTimeout(() => { checkOut(myDog.id); setDismissedEmptyMap(false); }, remainingForCheckout);
     }
 
     return () => {
@@ -328,7 +329,7 @@ export default function MapView() {
   }
 
   async function handleCheckOut() {
-    try { await checkOut(myDog.id); }
+    try { await checkOut(myDog.id); setDismissedEmptyMap(false); }
     catch (err) { console.error('Check-out failed:', err); }
   }
 
