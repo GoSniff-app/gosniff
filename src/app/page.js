@@ -10,14 +10,12 @@ import JoinThePack from '@/components/JoinThePack';
 import SignIn from '@/components/SignIn';
 import MapView from '@/components/MapView';
 import PawLogo from '@/components/PawLogo';
-import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 function AppContent() {
   const { user, dogs, loading, dogsLoaded } = useAuth();
   const { sendPackRequest } = usePack();
   const [authMode, setAuthMode] = useState('welcome');
   const [inviteToast, setInviteToast] = useState(null);
-  const [pwaReady, setPwaReady] = useState(false);
   const inviteHandledRef = useRef(false);
 
   const addPackDogId = useState(() => {
@@ -68,13 +66,6 @@ function AppContent() {
       </div>
     );
   }
-
-  if (user && dogs.length > 0 && !pwaReady) return (
-    <PWAInstallPrompt
-      dogName={myDog?.name || 'Your pup'}
-      onComplete={() => setPwaReady(true)}
-    />
-  );
 
   if (user && dogs.length > 0) return (
     <>
