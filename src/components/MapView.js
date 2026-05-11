@@ -401,13 +401,6 @@ export default function MapView() {
     return true;
   });
 
-  // Reset empty map dismiss when dogs appear (so it shows again next time map is empty)
-  useEffect(() => {
-    if (visibleDogs.length > 0 && dismissedEmptyMap) {
-      setDismissedEmptyMap(false);
-    }
-  }, [visibleDogs.length, dismissedEmptyMap]);
-
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
