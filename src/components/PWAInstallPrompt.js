@@ -158,7 +158,7 @@ export default function PWAInstallPrompt({ dogName, onComplete }) {
             </div>
 
             <p style={{ color: 'var(--gs-forest)', lineHeight: 1.6, marginBottom: '16px', fontSize: '0.95rem' }}>
-              Then go to <strong>gosniff.app</strong> and sign in. Don't worry, your account and {dogName}'s profile are already saved. Just sign in with the same email you used here.
+              Then go to <strong>gosniff.vercel.app</strong> and sign in. Don't worry, your account and {dogName}'s profile are already saved. Just sign in with the same email you used here.
             </p>
 
             <button
