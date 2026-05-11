@@ -4,19 +4,20 @@ import { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { PackProvider, usePack } from '@/lib/pack-context';
 import { AlertsProvider } from '@/lib/alerts-context';
-import { ChatProvider } from '@/lib/chat-context';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import JoinThePack from '@/components/JoinThePack';
 import SignIn from '@/components/SignIn';
 import MapView from '@/components/MapView';
 import PawLogo from '@/components/PawLogo';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 function AppContent() {
   const { user, dogs, loading, dogsLoaded } = useAuth();
   const { sendPackRequest } = usePack();
   const [authMode, setAuthMode] = useState('welcome');
   const [inviteToast, setInviteToast] = useState(null);
+  const [pwaReady, setPwaReady] = useState(false);
   const inviteHandledRef = useRef(false);
 
   const addPackDogId = useState(() => {
@@ -60,13 +61,20 @@ function AppContent() {
     return (
       <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gs-bg)' }} className="paw-pattern">
         <div style={{ textAlign: 'center' }} className="fade-in">
-          <PawLogo size={110} className="mx-auto mb-4" animate />
+          <PawLogo size={72} className="mx-auto mb-4" animate />
           <h1 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontSize: '1.875rem', fontWeight: 700, marginBottom: '4px' }}>GoSniff</h1>
           <p style={{ color: 'var(--gs-text-light)', fontSize: '0.875rem' }}>Loading your pack...</p>
         </div>
       </div>
     );
   }
+
+  if (user && dogs.length > 0 && !pwaReady) return (
+    <PWAInstallPrompt
+      dogName={myDog?.name || 'Your pup'}
+      onComplete={() => setPwaReady(true)}
+    />
+  );
 
   if (user && dogs.length > 0) return (
     <>
@@ -131,9 +139,7 @@ export default function Home() {
     <AuthProvider>
       <PackProvider>
         <AlertsProvider>
-          <ChatProvider>
-            <AppContent />
-          </ChatProvider>
+          <AppContent />
         </AlertsProvider>
       </PackProvider>
     </AuthProvider>

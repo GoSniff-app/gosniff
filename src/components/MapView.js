@@ -11,9 +11,6 @@ import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
 import ReportAlertSheet from './ReportAlertSheet';
-import ChatView from './ChatView';
-import ChatList from './ChatList';
-import { useChat } from '@/lib/chat-context';
 
 const ALERT_EMOJI = {
   coyote: '🐺',
@@ -108,7 +105,6 @@ export default function MapView() {
   const { user, dogs, checkIn, checkOut, extendCheckIn, updateCheckIn, signOut, updateDog } = useAuth();
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
-  const { getOrCreateConversation, totalUnreadCount } = useChat();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -132,17 +128,14 @@ export default function MapView() {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [refreshingLocation, setRefreshingLocation] = useState(false);
   const [showReportAlert, setShowReportAlert] = useState(false);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [alertVoteLoading, setAlertVoteLoading] = useState(false);
   const [dismissedAlertIds, setDismissedAlertIds] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [dismissedEmptyMap, setDismissedEmptyMap] = useState(false);
   const [frenemyWarning, setFrenemyWarning] = useState(null);
   const [showStillSniffing, setShowStillSniffing] = useState(false);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
-  const [chatOtherDog, setChatOtherDog] = useState(null);
-  const [activeConversationId, setActiveConversationId] = useState(null);
-  const [showChatList, setShowChatList] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -339,27 +332,15 @@ export default function MapView() {
     catch (err) { console.error('Check-out failed:', err); }
   }
 
-  async function openChat(otherDog) {
-    if (!myDog) return;
-    setPackActionLoading('chat');
-    try {
-      const convo = await getOrCreateConversation(myDog.id, otherDog.id);
-      if (!convo) throw new Error('Could not create conversation — check Firestore rules for the conversations collection.');
-      setActiveConversationId(convo.id);
-      setChatOtherDog(otherDog);
-      setSelectedDog(null);
-    } catch (err) {
-      console.error('Failed to open chat:', err);
-    }
-    setPackActionLoading(null);
-  }
-
   async function handleInvite() {
     const name = myDog?.name || 'My dog';
+    const inviteUrl = myDog?.id
+      ? `https://gosniff.app?addpack=${myDog.id}`
+      : 'https://gosniff.app';
     const shareData = {
-      title: `GoSniff\nCome sniff around with ${name}!`,
-      text: `Come sniff around with ${name}!`,
-      url: 'https://gosniff.app',
+      title: 'GoSniff - It\'s a Dog Meet Dog World',
+      text: `${name} is inviting you to join their pack on GoSniff! See which dogs are at the park right now and come hang out. 🐾\n\niPhone users: open this link in Safari 🧭`,
+      url: inviteUrl,
     };
     try {
       if (navigator.share) {
@@ -378,7 +359,7 @@ export default function MapView() {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
         <div className="text-center fade-in">
-          <PawLogo size={100} className="mx-auto mb-3" animate />
+          <PawLogo size={60} className="mx-auto mb-3" animate />
           <p style={{ color: 'var(--gs-green)', fontWeight: 600 }}>Loading map...</p>
         </div>
       </div>
@@ -420,10 +401,17 @@ export default function MapView() {
     return true;
   });
 
+  // Reset empty map dismiss when dogs appear (so it shows again next time map is empty)
+  useEffect(() => {
+    if (visibleDogs.length > 0 && dismissedEmptyMap) {
+      setDismissedEmptyMap(false);
+    }
+  }, [visibleDogs.length, dismissedEmptyMap]);
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, clickableIcons: false }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
@@ -436,7 +424,7 @@ export default function MapView() {
                     ? '3px solid #F97316'
                     : '3px solid var(--gs-green)',
                 position: 'relative',
-                zIndex: dog.id === myDog?.id ? 0 : 1,
+                zIndex: 1,
               }}
               onMouseDown={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
               onTouchStart={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
@@ -475,7 +463,7 @@ export default function MapView() {
       </GoogleMap>
 
       {/* EMPTY MAP STATE */}
-      {visibleDogs.length === 0 && !showCheckInPanel && (
+      {visibleDogs.length === 0 && !showCheckInPanel && !dismissedEmptyMap && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -490,7 +478,19 @@ export default function MapView() {
           paddingBottom: '120px',
           pointerEvents: 'none',
         }}>
-          <div className="gs-card slide-up text-center" style={{ pointerEvents: 'auto', maxWidth: '300px', width: '100%', padding: '28px 24px' }}>
+          <div className="gs-card slide-up text-center" style={{ pointerEvents: 'auto', maxWidth: '300px', width: '100%', padding: '28px 24px', position: 'relative' }}>
+            <button
+              onClick={() => setDismissedEmptyMap(true)}
+              style={{
+                position: 'absolute', top: '10px', right: '12px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--gs-text-light)', fontSize: '1.2rem', padding: '4px',
+                lineHeight: 1,
+              }}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
             <PawLogo size={56} className="mx-auto mb-3" />
             <h2 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontSize: '1.3rem', fontWeight: 700, marginBottom: '6px' }}>
               No dogs out right now
@@ -515,7 +515,7 @@ export default function MapView() {
               style={{ fontSize: '0.875rem' }}
               onClick={handleInvite}
             >
-              {copied ? '✓ Link copied!' : 'Invite a dog friend'}
+              {copied ? '✓ Link copied!' : 'Invite Your Dog Friends'}
             </button>
           </div>
         </div>
@@ -681,7 +681,7 @@ export default function MapView() {
             </div>
             <div>
               <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--gs-forest)', margin: 0 }}>{myDog?.name}</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: 0 }}>{Array.isArray(myDog?.breed) ? myDog.breed.filter(b => b !== 'Other').join(' / ') : (myDog?.breed !== 'Other' ? myDog?.breed : '')}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--gs-text-light)', margin: 0 }}>{myDog?.breed}</p>
             </div>
           </div>
           {/* Menu items */}
@@ -726,33 +726,16 @@ export default function MapView() {
             )}
           </button>
 
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowMenu(false); setTimeout(() => setShowChatList(true), 50); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--gs-forest)', transition: 'background 0.12s' }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#f0faf7'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-            <span style={{ flex: 1 }}>Messages</span>
-            {totalUnreadCount > 0 && (
-              <span style={{ background: 'var(--gs-teal)', color: '#fff', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', lineHeight: '1.4' }}>
-                {totalUnreadCount}
-              </span>
-            )}
-          </button>
-
           <div style={{ height: '1px', background: 'var(--gs-gray-200, #e5e5e5)', margin: '6px 0' }} />
 
           <button
             onClick={() => { signOut(); setShowMenu(false); }}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: 'var(--gs-coral)', transition: 'background 0.12s' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: '0.875rem', fontWeight: 600, color: '#9ca3af', transition: 'background 0.12s' }}
             onMouseEnter={(e) => e.currentTarget.style.background = '#fff0f0'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 16H3.5C2.94772 16 2.5 15.5523 2.5 15V3C2.5 2.44772 2.94772 2 3.5 2H7M12 12.5L16 9M16 9L12 5.5M16 9H7" stroke="var(--gs-coral)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7 16H3.5C2.94772 16 2.5 15.5523 2.5 15V3C2.5 2.44772 2.94772 2 3.5 2H7M12 12.5L16 9M16 9L12 5.5M16 9H7" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             Sign Out
           </button>
@@ -768,32 +751,7 @@ export default function MapView() {
 
       {showMyPack && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
-          <MyPackList
-            onClose={() => setShowMyPack(false)}
-            onOpenChat={(dog) => { setShowMyPack(false); openChat(dog); }}
-          />
-        </div>
-      )}
-
-      {showChatList && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
-          <ChatList
-            myDog={myDog}
-            onOpenChat={(dog) => { setShowChatList(false); openChat(dog); }}
-            onOpenPack={() => { setShowChatList(false); setShowMyPack(true); }}
-            onClose={() => setShowChatList(false)}
-          />
-        </div>
-      )}
-
-      {chatOtherDog && activeConversationId && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
-          <ChatView
-            conversationId={activeConversationId}
-            myDog={myDog}
-            otherDog={chatOtherDog}
-            onBack={() => { setChatOtherDog(null); setActiveConversationId(null); }}
-          />
+          <MyPackList onClose={() => setShowMyPack(false)} />
         </div>
       )}
 
@@ -805,68 +763,68 @@ export default function MapView() {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '12px 14px',
+            padding: '8px 12px',
             marginBottom: '8px',
             background: '#fff',
-            borderRadius: '16px',
+            borderRadius: '14px',
             boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
             border: '1px solid rgba(0,0,0,0.06)',
           }}>
-            <div style={{ display: 'flex', gap: '6px', flex: 1, alignItems: 'stretch', justifyContent: 'space-between' }}>
-              <button
-                onClick={handleRefreshLocation}
-                disabled={refreshingLocation}
-                style={{
-                  background: 'rgba(0,148,163,0.06)',
-                  border: '1px solid rgba(0,148,163,0.3)',
-                  borderRadius: '12px', padding: '6px 10px',
-                  fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
-                  color: 'var(--gs-teal)', cursor: refreshingLocation ? 'wait' : 'pointer',
-                  textAlign: 'center',
-                }}
-              >
-                {refreshingLocation ? '…' : <>↻ Update<br />Location</>}
-              </button>
-              <button
-                onClick={handleCheckOut}
-                style={{
-                  background: 'rgba(0,0,0,0.04)',
-                  border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: '12px', padding: '6px 10px',
-                  fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
-                  color: '#6b7280', cursor: 'pointer',
-                  textAlign: 'center',
-                }}
-              >
-                ✕ Leave<br />Location
-              </button>
+            <p style={{
+              flex: 1,
+              fontWeight: 600,
+              fontSize: '0.78rem',
+              color: 'var(--gs-forest)',
+              margin: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              minWidth: 0,
+            }}>
+              {myDog.name} · {myDog.checkedInAt}
+            </p>
+            <div style={{ display: 'flex', gap: '5px', flexShrink: 0 }}>
               {gpsCoords && (
                 <button
                   onClick={() => setShowReportAlert(true)}
                   style={{
                     background: 'rgba(245,158,11,0.08)',
                     border: '1px solid rgba(245,158,11,0.4)',
-                    borderRadius: '12px', padding: '6px 10px',
-                    fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
+                    borderRadius: '20px', padding: '4px 9px',
+                    fontSize: '0.7rem', fontWeight: 600,
                     color: '#92400e', cursor: 'pointer',
-                    whiteSpace: 'nowrap', textAlign: 'center',
+                    whiteSpace: 'nowrap', lineHeight: 1.4,
                   }}
                 >
                   ⚠ Alert
                 </button>
               )}
               <button
-                onClick={() => setShowSignOutConfirm(true)}
+                onClick={handleRefreshLocation}
+                disabled={refreshingLocation}
+                style={{
+                  background: 'rgba(0,148,163,0.06)',
+                  border: '1px solid rgba(0,148,163,0.3)',
+                  borderRadius: '20px', padding: '4px 9px',
+                  fontSize: '0.7rem', fontWeight: 600,
+                  color: 'var(--gs-teal)', cursor: refreshingLocation ? 'wait' : 'pointer',
+                  whiteSpace: 'nowrap', lineHeight: 1.4,
+                }}
+              >
+                {refreshingLocation ? '…' : '↻ Refresh'}
+              </button>
+              <button
+                onClick={handleCheckOut}
                 style={{
                   background: 'rgba(0,0,0,0.04)',
                   border: '1px solid rgba(0,0,0,0.12)',
-                  borderRadius: '12px', padding: '6px 10px',
-                  fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3,
+                  borderRadius: '20px', padding: '4px 9px',
+                  fontSize: '0.7rem', fontWeight: 600,
                   color: '#6b7280', cursor: 'pointer',
-                  whiteSpace: 'nowrap', textAlign: 'center',
+                  whiteSpace: 'nowrap', lineHeight: 1.4,
                 }}
               >
-                Sign Out
+                ✕ Leave
               </button>
             </div>
           </div>
@@ -958,7 +916,7 @@ export default function MapView() {
                 disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
                 onClick={handleCheckIn}
               >
-                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Location' : 'Check In')}
+                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Spot' : 'Check In')}
               </button>
             </div>
           </div>
@@ -1070,7 +1028,7 @@ export default function MapView() {
                   {selectedDog.name}
                 </h3>
                 <p style={{ color: 'var(--gs-text-light)', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-                  {Array.isArray(selectedDog.breed) ? selectedDog.breed.filter(b => b !== 'Other').join(' / ') : (selectedDog.breed !== 'Other' ? selectedDog.breed : '')} · {selectedDog.gender} · {selectedDog.age || 'Age unknown'}
+                  {selectedDog.breed} · {selectedDog.gender} · {selectedDog.age || 'Age unknown'}
                 </p>
                 {selectedDog.checkedInAt && (
                   <p style={{ color: 'var(--gs-green)', fontSize: '0.85rem', fontWeight: 600, margin: '4px 0 0 0' }}>
@@ -1127,24 +1085,17 @@ export default function MapView() {
                   );
                 }
                 return (
-                  <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(45, 106, 79, 0.07)', borderRadius: '14px', border: '1.5px solid var(--gs-green)' }}>
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                      <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={{ flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--gs-forest)' }}>In Your Pack</span>
                     <button
-                      className="btn-primary w-full"
-                      style={{ padding: '12px', fontSize: '0.95rem', marginBottom: '8px' }}
-                      disabled={packActionLoading === 'chat'}
-                      onClick={() => openChat(selectedDog)}
+                      onClick={() => setConfirmRemoveFromSheet(true)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-text-light)', padding: 0 }}
                     >
-                      {packActionLoading === 'chat' ? '…' : `Say Hi to ${selectedDog.name}`}
+                      Remove
                     </button>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--gs-green)', fontWeight: 600 }}>✓ In Your Pack</span>
-                      <button
-                        onClick={() => setConfirmRemoveFromSheet(true)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: 'var(--gs-text-light)', padding: 0, textDecoration: 'underline' }}
-                      >
-                        Remove
-                      </button>
-                    </div>
                   </div>
                 );
               }
@@ -1395,43 +1346,6 @@ export default function MapView() {
                 onClick={executeCheckIn}
               >
                 {checkingIn ? 'Checking in...' : 'Check in anyway'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SIGN OUT CONFIRMATION MODAL */}
-      {showSignOutConfirm && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(0,0,0,0.4)' }}
-          onClick={() => setShowSignOutConfirm(false)}
-        >
-          <div
-            className="gs-card fade-in"
-            style={{ maxWidth: '300px', width: '100%', textAlign: 'center' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p style={{ fontFamily: "'Fredoka', sans-serif", fontSize: '1.2rem', fontWeight: 700, color: 'var(--gs-forest)', margin: '0 0 6px' }}>
-              Sign out of GoSniff?
-            </p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--gs-text-light)', margin: '0 0 20px', lineHeight: 1.4 }}>
-              See you on your next sniff!
-            </p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                className="btn-secondary"
-                style={{ flex: 1, padding: '10px', fontSize: '0.9rem' }}
-                onClick={() => setShowSignOutConfirm(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                style={{ flex: 1, padding: '10px', fontSize: '0.9rem', fontWeight: 700, background: 'var(--gs-coral)', borderColor: 'var(--gs-coral)' }}
-                onClick={() => { setShowSignOutConfirm(false); signOut(); }}
-              >
-                Sign Out
               </button>
             </div>
           </div>
