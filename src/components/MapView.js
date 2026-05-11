@@ -340,7 +340,7 @@ export default function MapView() {
       : 'https://gosniff.vercel.app';
     const shareData = {
       title: 'GoSniff - It\'s a Dog Meet Dog World',
-      text: `${name} is inviting you to join their pack on GoSniff! See which dogs are at the park right now and come hang out. 🐾\n\niPhone users: open this link in Safari 🧭`,
+      text: `${name} is inviting you to join them on GoSniff! See which dogs are at the park right now and come hang out. 🐾\n\niPhone users: open this link in Safari 🧭`,
       url: inviteUrl,
     };
     try {
