@@ -11,8 +11,8 @@ export const metadata = {
     images: [
       {
         url: 'https://gosniff.vercel.app/GoSniff_Logo.png',
-        width: 512,
-        height: 512,
+        width: 1496,
+        height: 1238,
         alt: 'GoSniff Logo',
       },
     ],
@@ -37,6 +37,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/favicon-32.png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
