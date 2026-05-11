@@ -132,6 +132,7 @@ export default function MapView() {
   const [alertVoteLoading, setAlertVoteLoading] = useState(false);
   const [dismissedAlertIds, setDismissedAlertIds] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [inviteFallbackUrl, setInviteFallbackUrl] = useState(null);
   const [dismissedEmptyMap, setDismissedEmptyMap] = useState(false);
   const [frenemyWarning, setFrenemyWarning] = useState(null);
   const [showStillSniffing, setShowStillSniffing] = useState(false);
@@ -347,9 +348,13 @@ export default function MapView() {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(shareData.url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        try {
+          await navigator.clipboard.writeText(shareData.url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          setInviteFallbackUrl(shareData.url);
+        }
       }
     } catch (err) {
       if (err.name !== 'AbortError') console.error('Share failed:', err);
@@ -511,6 +516,24 @@ export default function MapView() {
             >
               {copied ? '✓ Link copied!' : 'Invite Your Dog Friends'}
             </button>
+            {inviteFallbackUrl && (
+              <div style={{ marginTop: '8px' }}>
+                <input
+                  readOnly
+                  value={inviteFallbackUrl}
+                  onFocus={e => e.target.select()}
+                  style={{
+                    width: '100%', padding: '8px', fontSize: '0.75rem',
+                    border: '1px solid var(--gs-green)', borderRadius: '8px',
+                    background: 'var(--gs-bg)', color: 'var(--gs-forest)',
+                    textAlign: 'center', cursor: 'text',
+                  }}
+                />
+                <p style={{ fontSize: '0.7rem', color: 'var(--gs-text-light)', marginTop: '4px', textAlign: 'center' }}>
+                  Tap to select, then copy
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
