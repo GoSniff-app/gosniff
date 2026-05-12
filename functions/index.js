@@ -1,7 +1,9 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functionsV1 = require('firebase-functions/v1');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
 
 initializeApp();
 
@@ -203,3 +205,185 @@ exports.sendWelcomeEmail = functionsV1.auth.user().onCreate(async (user) => {
 
   console.log(`sendWelcomeEmail: mail document written for ${email}`);
 });
+
+// ─── Pack check-in push notifications ────────────────────────────────────────
+
+exports.sendCheckInNotification = onDocumentUpdated(
+  { document: 'dogs/{dogId}', region: 'us-central1' },
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    // Only fire on new check-ins (false → true)
+    if (before.checkedIn !== false || after.checkedIn !== true) return;
+
+    const dogId = event.params.dogId;
+    const dogName = after.name || 'A dog';
+    const locationName = after.checkedInAt || 'the park';
+    const ownerUid = after.humanIds?.[0];
+
+    if (!ownerUid) return;
+
+    const db = getFirestore();
+    const fcm = getMessaging();
+
+    // Find all pack links that include this dog
+    const packLinksSnap = await db
+      .collection('packLinks')
+      .where('dogIds', 'array-contains', dogId)
+      .get();
+
+    if (packLinksSnap.empty) return;
+
+    // Collect unique human UIDs to notify by looking up the other dog in each link
+    const humanIdSet = new Set();
+    await Promise.all(
+      packLinksSnap.docs.map(async (linkDoc) => {
+        const otherDogId = linkDoc.data().dogIds.find((id) => id !== dogId);
+        if (!otherDogId) return;
+        const otherDogSnap = await db.collection('dogs').doc(otherDogId).get();
+        if (!otherDogSnap.exists) return;
+        const otherHumanId = otherDogSnap.data()?.humanIds?.[0];
+        if (otherHumanId && otherHumanId !== ownerUid) humanIdSet.add(otherHumanId);
+      })
+    );
+
+    if (humanIdSet.size === 0) return;
+
+    let notifiedCount = 0;
+
+    await Promise.all(
+      [...humanIdSet].map(async (humanId) => {
+        const humanRef = db.collection('humans').doc(humanId);
+        const humanSnap = await humanRef.get();
+        if (!humanSnap.exists) return;
+
+        const humanData = humanSnap.data();
+
+        // Skip if this dog is muted for check-in notifications
+        if (humanData.mutedCheckInDogIds?.includes(dogId)) return;
+
+        const fcmTokens = humanData.fcmTokens || [];
+        if (fcmTokens.length === 0) return;
+
+        const staleTokenStrings = [];
+
+        await Promise.all(
+          fcmTokens.map((tokenEntry) =>
+            fcm.send({
+              token: tokenEntry.token,
+              notification: {
+                title: 'GoSniff',
+                body: `${dogName} just checked in at ${locationName}! 🐕`,
+              },
+              webpush: {
+                fcmOptions: { link: 'https://gosniff.vercel.app' },
+              },
+            }).catch((err) => {
+              if (err.code === 'messaging/registration-token-not-registered') {
+                staleTokenStrings.push(tokenEntry.token);
+              } else {
+                console.error(`FCM send failed for human ${humanId}:`, err.message);
+              }
+            })
+          )
+        );
+
+        // Clean up any stale tokens
+        if (staleTokenStrings.length > 0) {
+          const updatedTokens = fcmTokens.filter(
+            (t) => !staleTokenStrings.includes(t.token)
+          );
+          await humanRef.update({ fcmTokens: updatedTokens });
+          console.log(`Removed ${staleTokenStrings.length} stale token(s) for human ${humanId}`);
+        }
+
+        notifiedCount++;
+      })
+    );
+
+    console.log(`Sent check-in notification for ${dogName} to ${notifiedCount} humans`);
+  }
+);
+
+// ─── New message push notifications ──────────────────────────────────────────
+
+exports.sendMessageNotification = onDocumentCreated(
+  { document: 'conversations/{conversationId}/messages/{messageId}', region: 'us-central1' },
+  async (event) => {
+    const messageData = event.data.data();
+    const { conversationId } = event.params;
+
+    const fromDogId = messageData.fromDogId;
+    const rawText = messageData.text || '';
+    const notifBody = rawText.length > 100 ? rawText.slice(0, 100) + '...' : rawText;
+
+    if (!fromDogId) return;
+
+    const db = getFirestore();
+    const fcm = getMessaging();
+
+    // Read the parent conversation
+    const convoSnap = await db.collection('conversations').doc(conversationId).get();
+    if (!convoSnap.exists) return;
+
+    const { dogIds, humanIds } = convoSnap.data();
+
+    // Identify recipient dog and human
+    const recipientDogId = dogIds.find((id) => id !== fromDogId);
+    if (!recipientDogId) return;
+
+    const recipientDogSnap = await db.collection('dogs').doc(recipientDogId).get();
+    if (!recipientDogSnap.exists) return;
+    const recipientHumanId = recipientDogSnap.data()?.humanIds?.[0];
+    if (!recipientHumanId) return;
+
+    // Read recipient human doc
+    const recipientRef = db.collection('humans').doc(recipientHumanId);
+    const recipientSnap = await recipientRef.get();
+    if (!recipientSnap.exists) return;
+
+    const recipientData = recipientSnap.data();
+
+    // Skip if sender is muted
+    if (recipientData.mutedMessageDogIds?.includes(fromDogId)) return;
+
+    const fcmTokens = recipientData.fcmTokens || [];
+    if (fcmTokens.length === 0) return;
+
+    // Get sender dog name for notification title
+    const senderDogSnap = await db.collection('dogs').doc(fromDogId).get();
+    const senderName = senderDogSnap.exists ? (senderDogSnap.data()?.name || 'Someone') : 'Someone';
+
+    const staleTokenStrings = [];
+
+    await Promise.all(
+      fcmTokens.map((tokenEntry) =>
+        fcm.send({
+          token: tokenEntry.token,
+          notification: {
+            title: senderName,
+            body: notifBody,
+          },
+          webpush: {
+            fcmOptions: { link: 'https://gosniff.vercel.app' },
+          },
+        }).catch((err) => {
+          if (err.code === 'messaging/registration-token-not-registered') {
+            staleTokenStrings.push(tokenEntry.token);
+          } else {
+            console.error(`FCM send failed for human ${recipientHumanId}:`, err.message);
+          }
+        })
+      )
+    );
+
+    if (staleTokenStrings.length > 0) {
+      const updatedTokens = fcmTokens.filter((t) => !staleTokenStrings.includes(t.token));
+      await recipientRef.update({ fcmTokens: updatedTokens });
+      console.log(`Removed ${staleTokenStrings.length} stale token(s) for human ${recipientHumanId}`);
+    }
+
+    console.log(`Sent message notification from ${senderName} to human ${recipientHumanId}`);
+  }
+);

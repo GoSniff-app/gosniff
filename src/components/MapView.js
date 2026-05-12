@@ -11,6 +11,7 @@ import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
 import ReportAlertSheet from './ReportAlertSheet';
+import NotificationPermission from './NotificationPermission';
 
 const ALERT_EMOJI = {
   coyote: '🐺',
@@ -1370,6 +1371,8 @@ export default function MapView() {
       )}
 
       {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 250 }} onClick={() => setShowMenu(false)} />)}
+
+      <NotificationPermission />
     </div>
   );
 }

@@ -98,6 +98,8 @@ export function AuthProvider({ children }) {
       await setDoc(doc(db, 'humans', cred.user.uid), {
         email,
         createdAt: serverTimestamp(),
+        mutedCheckInDogIds: [],
+        mutedMessageDogIds: [],
       });
 
       await addDoc(collection(db, 'dogs'), {

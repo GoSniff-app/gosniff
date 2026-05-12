@@ -83,6 +83,7 @@ export default function JoinThePack() {
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const totalSteps = 5;
@@ -280,6 +281,13 @@ export default function JoinThePack() {
               <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Email</label>
               <input type="email" className="gs-input" placeholder="you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
+            <div className="mb-3">
+              <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Confirm Email</label>
+              <input type="email" className="gs-input" placeholder="Type your email again" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} />
+              {confirmEmail && email.toLowerCase() !== confirmEmail.toLowerCase() && (
+                <p className="text-xs mt-1" style={{ color: 'var(--gs-coral)' }}>Emails don't match</p>
+              )}
+            </div>
             <div className="mb-2">
               <label className="block text-sm font-bold mb-1" style={{ color: 'var(--gs-green)' }}>Password</label>
               <div style={{ position: 'relative' }}>
@@ -315,7 +323,7 @@ export default function JoinThePack() {
             </div>
             <div className="flex gap-3 mt-6">
               <button className="btn-secondary flex-1" onClick={() => setStep(4)}>Back</button>
-              <button className="btn-primary flex-1" disabled={!email || password.length < 6 || submitting} onClick={handleSubmit}>
+              <button className="btn-primary flex-1" disabled={!email || email.toLowerCase() !== confirmEmail.toLowerCase() || password.length < 6 || submitting} onClick={handleSubmit}>
                 {submitting ? 'Creating Pack...' : "Let's GoSniff!"}
               </button>
             </div>
