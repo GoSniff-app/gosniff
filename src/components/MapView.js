@@ -12,6 +12,7 @@ import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
 import ReportAlertSheet from './ReportAlertSheet';
 import NotificationPermission from './NotificationPermission';
+import ChatView from './ChatView';
 
 const ALERT_EMOJI = {
   coyote: '🐺',
@@ -138,6 +139,7 @@ export default function MapView() {
   const [frenemyWarning, setFrenemyWarning] = useState(null);
   const [showStillSniffing, setShowStillSniffing] = useState(false);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+  const [activeChatDog, setActiveChatDog] = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -769,7 +771,7 @@ export default function MapView() {
 
       {showMyPack && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
-          <MyPackList onClose={() => setShowMyPack(false)} />
+          <MyPackList onClose={() => setShowMyPack(false)} onOpenChat={(dog) => setActiveChatDog(dog)} />
         </div>
       )}
 
@@ -877,10 +879,18 @@ export default function MapView() {
                     onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
                     style={{ paddingRight: '36px' }}
                   />
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
-                    style={{ position: 'absolute', right: '12px', top: '14px', opacity: 0.4 }}>
-                    <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  {locationName && (
+                    <button
+                      type="button"
+                      onClick={() => setLocationName('')}
+                      aria-label="Clear location"
+                      style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', opacity: 0.5, display: 'flex', alignItems: 'center' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs mb-3" style={{ color: 'var(--gs-text-light)' }}>
                   Tap to rename your spot (e.g. "The Pond" or "Big Dog Area")
@@ -1103,18 +1113,27 @@ export default function MapView() {
                   );
                 }
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(45, 106, 79, 0.07)', borderRadius: '14px', border: '1.5px solid var(--gs-green)' }}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                      <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span style={{ flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--gs-forest)' }}>In Your Pack</span>
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(45, 106, 79, 0.07)', borderRadius: '14px', border: '1.5px solid var(--gs-green)' }}>
+                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                        <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span style={{ flex: 1, fontWeight: 700, fontSize: '0.95rem', color: 'var(--gs-forest)' }}>In Your Pack</span>
+                      <button
+                        onClick={() => setConfirmRemoveFromSheet(true)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-text-light)', padding: 0 }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <button
-                      onClick={() => setConfirmRemoveFromSheet(true)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: 'var(--gs-text-light)', padding: 0 }}
+                      className="btn-secondary w-full"
+                      style={{ padding: '12px', fontSize: '0.95rem', marginTop: '10px' }}
+                      onClick={() => { setSelectedDog(null); setActiveChatDog(selectedDog); }}
                     >
-                      Remove
+                      Message {selectedDog.name}
                     </button>
-                  </div>
+                  </>
                 );
               }
 
@@ -1373,6 +1392,17 @@ export default function MapView() {
       {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 250 }} onClick={() => setShowMenu(false)} />)}
 
       <NotificationPermission />
+
+      {activeChatDog && myDog && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 450 }}>
+          <ChatView
+            conversationId={[myDog.id, activeChatDog.id].sort().join('_')}
+            myDog={myDog}
+            otherDog={activeChatDog}
+            onBack={() => setActiveChatDog(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
