@@ -963,28 +963,37 @@ export default function MapView() {
                 {!isUpdatingLocation && (
                   <>
                     <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Who can see you?</p>
-                    <div style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid var(--gs-gray-200, #e5e5e5)', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                       <button
                         style={{
                           flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
-                          border: 'none', cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
-                          background: checkInVisibility === 'everyone' ? 'var(--gs-teal)' : '#fff',
-                          color: checkInVisibility === 'everyone' ? '#fff' : 'var(--gs-text-light)',
+                          border: 'none', borderRadius: '20px', cursor: 'pointer',
+                          transition: 'background 0.15s, color 0.15s',
+                          background: checkInVisibility === 'everyone' ? '#1D9E75' : '#9FE1CB',
+                          color: checkInVisibility === 'everyone' ? '#fff' : '#04342C',
                         }}
                         onClick={() => setCheckInVisibility('everyone')}
                       >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }}>
+                          <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                          <path d="M1 7h12M7 1c-2 2-2 8 0 12M7 1c2 2 2 8 0 12" stroke="currentColor" strokeWidth="1.5"/>
+                        </svg>
                         Meet New Dogs
                       </button>
                       <button
                         style={{
                           flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
-                          border: 'none', borderLeft: '1.5px solid var(--gs-gray-200, #e5e5e5)',
-                          cursor: 'pointer', transition: 'background 0.15s, color 0.15s',
-                          background: checkInVisibility === 'friends' ? 'var(--gs-teal)' : '#fff',
-                          color: checkInVisibility === 'friends' ? '#fff' : 'var(--gs-text-light)',
+                          border: 'none', borderRadius: '20px', cursor: 'pointer',
+                          transition: 'background 0.15s, color 0.15s',
+                          background: checkInVisibility === 'friends' ? '#1D9E75' : '#9FE1CB',
+                          color: checkInVisibility === 'friends' ? '#fff' : '#04342C',
                         }}
                         onClick={() => setCheckInVisibility('friends')}
                       >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }}>
+                          <rect x="2" y="6" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
+                          <path d="M4.5 6V4a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
                         Friends Only
                       </button>
                     </div>
@@ -1006,6 +1015,12 @@ export default function MapView() {
                 className="btn-primary flex-1 text-sm"
                 disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
                 onClick={handleCheckIn}
+                style={{
+                  background: '#EF9F27',
+                  color: '#412402',
+                  border: '2.5px solid #854F0B',
+                  borderRadius: '12px',
+                }}
               >
                 {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Location' : 'Check In')}
               </button>
