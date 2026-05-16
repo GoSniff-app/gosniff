@@ -226,6 +226,9 @@ export default function MapView() {
   const onMapLoad = useCallback((mapInstance) => {
     setMap(mapInstance);
     mapRef.current = mapInstance;
+    // Tell the Maps API the bottom ~100px is covered by the footer so it
+    // repositions built-in controls (zoom +/-) above it.
+    mapInstance.setOptions({ padding: { bottom: 100, top: 0, left: 0, right: 0 } });
   }, []);
 
   async function handleRefreshLocation() {
