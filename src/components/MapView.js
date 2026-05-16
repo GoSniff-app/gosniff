@@ -226,9 +226,12 @@ export default function MapView() {
   const onMapLoad = useCallback((mapInstance) => {
     setMap(mapInstance);
     mapRef.current = mapInstance;
-    // Tell the Maps API the bottom ~100px is covered by the footer so it
-    // repositions built-in controls (zoom +/-) above it.
-    mapInstance.setOptions({ padding: { bottom: 100, top: 0, left: 0, right: 0 } });
+    // Move zoom controls to right-center so they clear the fixed footer at the bottom.
+    mapInstance.setOptions({
+      zoomControlOptions: {
+        position: window.google.maps.ControlPosition.RIGHT_CENTER,
+      },
+    });
   }, []);
 
   async function handleRefreshLocation() {
@@ -418,7 +421,7 @@ export default function MapView() {
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 6 }, clickableIcons: false }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
