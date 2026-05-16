@@ -231,12 +231,24 @@ export default function MapView() {
         position: window.google.maps.ControlPosition.RIGHT_CENTER,
       },
     });
-    // Nudge zoom control inward — Google Maps positions it at right:0 with an
-    // inline style so CSS class overrides lose the specificity battle.
+    // Nudge zoom control inward. Google Maps sets right:0 via inline style on
+    // the absolutely-positioned ancestor, so we walk up from the zoom button
+    // to that ancestor and override it.
     setTimeout(() => {
       const mapDiv = mapInstance.getDiv();
-      const zoomEl = mapDiv.querySelector('div[title="Zoom in"]')?.closest('.gmnoprint');
-      if (zoomEl) zoomEl.style.right = '10px';
+      const zoomBtn = mapDiv.querySelector(
+        'button[title="Zoom in"], button[aria-label="Zoom in"]'
+      );
+      if (zoomBtn) {
+        let el = zoomBtn.parentElement;
+        while (el && el !== mapDiv) {
+          if (window.getComputedStyle(el).position === 'absolute') {
+            el.style.right = '10px';
+            break;
+          }
+          el = el.parentElement;
+        }
+      }
     }, 400);
   }, []);
 
