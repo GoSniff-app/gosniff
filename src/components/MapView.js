@@ -1459,8 +1459,7 @@ export default function MapView() {
       <div style={{
         position: 'fixed',
         right: '24px',
-        top: '50%',
-        transform: 'translateY(-80px)',
+        bottom: '160px',
         zIndex: 5,
         display: 'flex',
         flexDirection: 'column',
