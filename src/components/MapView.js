@@ -513,7 +513,7 @@ export default function MapView() {
               style={{ marginBottom: '10px', fontSize: '0.95rem' }}
               onClick={handleOpenCheckIn}
             >
-              We're Here!
+              We're here!
             </button>
             <button
               className="btn-secondary w-full"
@@ -1032,7 +1032,7 @@ export default function MapView() {
           <div className="flex gap-3 bounce-in" style={{ pointerEvents: 'auto' }}>
             <button className="btn-primary" onClick={handleOpenCheckIn}
               style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: '18px' }}>
-              We are Here!
+              We're here!
             </button>
             <button
               onClick={handleRefreshLocation}
