@@ -226,30 +226,6 @@ export default function MapView() {
   const onMapLoad = useCallback((mapInstance) => {
     setMap(mapInstance);
     mapRef.current = mapInstance;
-    mapInstance.setOptions({
-      zoomControlOptions: {
-        position: window.google.maps.ControlPosition.RIGHT_CENTER,
-      },
-    });
-    // Nudge zoom control inward. Google Maps sets right:0 via inline style on
-    // the absolutely-positioned ancestor, so we walk up from the zoom button
-    // to that ancestor and override it.
-    setTimeout(() => {
-      const mapDiv = mapInstance.getDiv();
-      const zoomBtn = mapDiv.querySelector(
-        'button[title="Zoom in"], button[aria-label="Zoom in"]'
-      );
-      if (zoomBtn) {
-        let el = zoomBtn.parentElement;
-        while (el && el !== mapDiv) {
-          if (window.getComputedStyle(el).position === 'absolute') {
-            el.style.right = '10px';
-            break;
-          }
-          el = el.parentElement;
-        }
-      }
-    }, 400);
   }, []);
 
   async function handleRefreshLocation() {
@@ -439,7 +415,7 @@ export default function MapView() {
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, mapTypeControl: true, mapTypeControlOptions: { position: 8, style: 2, mapTypeIds: ['roadmap', 'satellite'] }, clickableIcons: false, padding: { right: 48 } }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: false, mapTypeControl: true, mapTypeControlOptions: { position: 8, style: 2, mapTypeIds: ['roadmap', 'satellite'] }, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
@@ -1478,6 +1454,37 @@ export default function MapView() {
       {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 250 }} onClick={() => setShowMenu(false)} />)}
 
       <NotificationPermission />
+
+      {/* Custom zoom controls — aligned with Map/Satellite toggle */}
+      <div style={{
+        position: 'fixed',
+        right: '24px',
+        top: '50%',
+        transform: 'translateY(-80px)',
+        zIndex: 5,
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+        borderRadius: '2px',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => mapRef.current?.setZoom((mapRef.current?.getZoom() || 14) + 1)}
+          style={{
+            width: '40px', height: '40px', border: 'none', borderBottom: '1px solid #e6e6e6',
+            background: '#fff', cursor: 'pointer', fontSize: '18px', color: '#666',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >+</button>
+        <button
+          onClick={() => mapRef.current?.setZoom((mapRef.current?.getZoom() || 14) - 1)}
+          style={{
+            width: '40px', height: '40px', border: 'none',
+            background: '#fff', cursor: 'pointer', fontSize: '18px', color: '#666',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >−</button>
+      </div>
 
       {activeChatDog && myDog && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 450 }}>
