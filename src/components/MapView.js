@@ -967,10 +967,10 @@ export default function MapView() {
                       <button
                         style={{
                           flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
-                          border: 'none', borderRadius: '20px', cursor: 'pointer',
-                          transition: 'background 0.15s, color 0.15s',
-                          background: checkInVisibility === 'everyone' ? '#1D9E75' : '#9FE1CB',
-                          color: checkInVisibility === 'everyone' ? '#fff' : '#04342C',
+                          borderRadius: '20px', cursor: 'pointer',
+                          transition: 'border 0.15s',
+                          background: '#1D9E75', color: '#fff',
+                          border: checkInVisibility === 'everyone' ? '2px solid #0F6E56' : '2px solid transparent',
                         }}
                         onClick={() => setCheckInVisibility('everyone')}
                       >
@@ -983,10 +983,10 @@ export default function MapView() {
                       <button
                         style={{
                           flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
-                          border: 'none', borderRadius: '20px', cursor: 'pointer',
-                          transition: 'background 0.15s, color 0.15s',
-                          background: checkInVisibility === 'friends' ? '#1D9E75' : '#9FE1CB',
-                          color: checkInVisibility === 'friends' ? '#fff' : '#04342C',
+                          borderRadius: '20px', cursor: 'pointer',
+                          transition: 'border 0.15s',
+                          background: '#9FE1CB', color: '#04342C',
+                          border: checkInVisibility === 'friends' ? '2px solid #0F6E56' : '2px solid transparent',
                         }}
                         onClick={() => setCheckInVisibility('friends')}
                       >
