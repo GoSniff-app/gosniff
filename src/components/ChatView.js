@@ -28,7 +28,7 @@ function formatTime(timestamp) {
 }
 
 export default function ChatView({ conversationId, myDog, otherDog, onBack }) {
-  const { subscribeToMessages, markConversationRead, sendMessage } = useChat();
+  const { subscribeToMessages, markConversationRead, sendMessage, getOrCreateConversation } = useChat();
 
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -38,18 +38,27 @@ export default function ChatView({ conversationId, myDog, otherDog, onBack }) {
   const textareaRef = useRef(null);
   const prevMsgCountRef = useRef(0);
 
-  // Subscribe to messages and mark conversation read when opened
+  // Ensure conversation doc exists before subscribing, so security rules don't kill the listener
   useEffect(() => {
-    if (!conversationId || !myDog?.id) return;
+    if (!conversationId || !myDog?.id || !otherDog?.id) return;
 
-    markConversationRead(conversationId, myDog.id);
-    const unsub = subscribeToMessages(conversationId, setMessages);
+    let unsubFn = null;
+    let cancelled = false;
+
+    getOrCreateConversation(myDog.id, otherDog.id)
+      .then(() => {
+        if (cancelled) return;
+        markConversationRead(conversationId, myDog.id);
+        unsubFn = subscribeToMessages(conversationId, setMessages);
+      })
+      .catch((err) => console.error('[ChatView] failed to init conversation:', err));
 
     return () => {
-      unsub();
+      cancelled = true;
+      if (unsubFn) unsubFn();
       setMessages([]);
     };
-  }, [conversationId, myDog?.id]);
+  }, [conversationId, myDog?.id, otherDog?.id]);
 
   // Auto-scroll: instant on initial load, smooth for new incoming messages
   useEffect(() => {

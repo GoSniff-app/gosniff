@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
 import { useAlerts } from '@/lib/alerts-context';
+import { useChat } from '@/lib/chat-context';
 import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
@@ -107,6 +108,7 @@ export default function MapView() {
   const { user, dogs, checkIn, checkOut, extendCheckIn, updateCheckIn, signOut, updateDog } = useAuth();
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
+  const { totalUnreadCount } = useChat();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -558,49 +560,96 @@ export default function MapView() {
           <PawLogo size={32} />
           <span style={{ fontFamily: "'Fredoka', sans-serif", color: '#1a1a1a', fontSize: '1.25rem', fontWeight: 700 }}>GoSniff</span>
         </div>
-        <button onClick={() => setShowMenu(!showMenu)} style={{
-          position: 'relative',
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '4px',
-          background: '#ffffff',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          border: '1px solid #e5e5e5',
-          cursor: 'pointer',
-        }}>
-          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
-          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
-          <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
-          {pendingReceived.length > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: '0px',
-              right: '0px',
-              minWidth: '18px',
-              height: '18px',
-              borderRadius: '9px',
-              background: 'var(--gs-teal)',
-              color: '#fff',
-              fontSize: '0.6rem',
-              fontWeight: 700,
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => { setShowMenu(false); setShowMyPack(true); }}
+            aria-label="Messages"
+            style={{
+              position: 'relative',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '2px solid #fff',
-              padding: '0 3px',
-              lineHeight: 1,
-              boxSizing: 'border-box',
-              pointerEvents: 'none',
-            }}>
-              {pendingReceived.length > 9 ? '9+' : pendingReceived.length}
-            </span>
-          )}
-        </button>
+              background: '#ffffff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              border: '1px solid #e5e5e5',
+              cursor: 'pointer',
+            }}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="var(--gs-teal)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {totalUnreadCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '0px',
+                right: '0px',
+                minWidth: '18px',
+                height: '18px',
+                borderRadius: '9px',
+                background: 'var(--gs-coral)',
+                color: '#fff',
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid #fff',
+                padding: '0 3px',
+                lineHeight: 1,
+                boxSizing: 'border-box',
+                pointerEvents: 'none',
+              }}>
+                {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+              </span>
+            )}
+          </button>
+          <button onClick={() => setShowMenu(!showMenu)} style={{
+            position: 'relative',
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            background: '#ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            border: '1px solid #e5e5e5',
+            cursor: 'pointer',
+          }}>
+            <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+            <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+            <span style={{ display: 'block', width: '18px', height: '2px', background: '#1a1a1a', borderRadius: '1px' }} />
+            {pendingReceived.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '0px',
+                right: '0px',
+                minWidth: '18px',
+                height: '18px',
+                borderRadius: '9px',
+                background: 'var(--gs-teal)',
+                color: '#fff',
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid #fff',
+                padding: '0 3px',
+                lineHeight: 1,
+                boxSizing: 'border-box',
+                pointerEvents: 'none',
+              }}>
+                {pendingReceived.length > 9 ? '9+' : pendingReceived.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* NEARBY ALERT BANNER — Waze-style, primary way users see nearby alerts */}
