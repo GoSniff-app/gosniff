@@ -226,12 +226,18 @@ export default function MapView() {
   const onMapLoad = useCallback((mapInstance) => {
     setMap(mapInstance);
     mapRef.current = mapInstance;
-    // Position zoom controls at top-right so they clear the fixed footer at the bottom.
     mapInstance.setOptions({
       zoomControlOptions: {
         position: window.google.maps.ControlPosition.RIGHT_CENTER,
       },
     });
+    // Nudge zoom control inward — Google Maps positions it at right:0 with an
+    // inline style so CSS class overrides lose the specificity battle.
+    setTimeout(() => {
+      const mapDiv = mapInstance.getDiv();
+      const zoomEl = mapDiv.querySelector('div[title="Zoom in"]')?.closest('.gmnoprint');
+      if (zoomEl) zoomEl.style.right = '10px';
+    }, 400);
   }, []);
 
   async function handleRefreshLocation() {
