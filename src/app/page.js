@@ -101,7 +101,7 @@ function AppContent() {
           <br />
           Check in, meet up, and make new friends.
         </p>
-        <p style={{ color: 'var(--gs-text-light)', fontStyle: 'italic', marginBottom: '32px', fontSize: '0.95rem' }}>
+        <p style={{ color: 'var(--gs-text-light)', fontStyle: 'italic', marginTop: '2px', marginBottom: '32px', fontSize: '0.95rem' }}>
           (for your dog, obviously)
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
@@ -121,7 +121,7 @@ function AppContent() {
           </button>
         </div>
         <p style={{ marginTop: '48px', fontSize: '22px', fontWeight: 700, color: 'var(--gs-forest)', textAlign: 'center' }}>Your dog is the star. You're just holding the phone.</p>
-        <p style={{ marginTop: '4px', fontSize: '17px', fontStyle: 'italic', color: 'var(--gs-text-light)', textAlign: 'center' }}>(Your human identity is never revealed)</p>
+        <p style={{ marginTop: '2px', fontSize: '17px', fontStyle: 'italic', color: 'var(--gs-text-light)', textAlign: 'center' }}>(Your human identity is never revealed)</p>
       </div>
     </div>
   );
