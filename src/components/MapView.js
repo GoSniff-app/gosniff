@@ -866,7 +866,7 @@ export default function MapView() {
             {hasLocation && !detectingLocation && !locationError && (
               <>
                 <h3 className="font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>
-                  {isUpdatingLocation ? 'Update your spot' : (locationName ? 'Where exactly are you?' : 'Where are you?')}
+                  {isUpdatingLocation ? 'Update your location' : (locationName ? 'Where exactly are you?' : 'Where are you?')}
                 </h3>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -944,7 +944,7 @@ export default function MapView() {
                 disabled={!locationName.trim() || checkingIn || !hasLocation || detectingLocation}
                 onClick={handleCheckIn}
               >
-                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Spot' : 'Check In')}
+                {checkingIn ? (isUpdatingLocation ? 'Updating...' : 'Checking in...') : (isUpdatingLocation ? 'Update Location' : 'Check In')}
               </button>
             </div>
           </div>
