@@ -70,7 +70,8 @@ export default function MyPackList({ onClose, onOpenChat }) {
     });
   }, [myPack, pendingReceived, pendingSent, myDog?.id]);
 
-  // Debounced dog name search
+  // Debounced dog name search with fuzzy word-prefix matching.
+  // Fetches all dogs client-side so "george" matches "Dr. George", etc.
   useEffect(() => {
     const term = searchTerm.trim();
     if (!term) {
@@ -82,34 +83,28 @@ export default function MyPackList({ onClose, onOpenChat }) {
     setSearchLoading(true);
     const timer = setTimeout(async () => {
       try {
-        // Query with exact case and capitalized first letter to cover common naming patterns
-        const termCap = term.charAt(0).toUpperCase() + term.slice(1).toLowerCase();
-        const variants = [term];
-        if (term !== termCap) variants.push(termCap);
+        const snap = await getDocs(query(collection(db, 'dogs'), limit(500)));
 
-        const snaps = await Promise.all(
-          variants.map((v) =>
-            getDocs(query(collection(db, 'dogs'), where('name', '>=', v), where('name', '<=', v + ''), limit(10)))
-          )
-        );
+        // Strip punctuation, collapse spaces, lowercase
+        const normalize = (s) =>
+          s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
-        const seen = new Set();
-        const results = [];
-        snaps.forEach((snap) => {
-          snap.docs.forEach((d) => {
-            if (!seen.has(d.id)) {
-              seen.add(d.id);
-              results.push({ id: d.id, ...d.data() });
-            }
-          });
-        });
+        const queryWords = normalize(term).split(' ').filter(Boolean);
 
         const packDogIds = new Set(myPack.flatMap((l) => l.dogIds || []));
         const sentDogIds = new Set(pendingSent.map((r) => r.toDogId));
 
-        setSearchResults(results.filter(
-          (dog) => dog.id !== myDog?.id && !packDogIds.has(dog.id) && !sentDogIds.has(dog.id)
-        ));
+        const results = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((dog) => {
+            if (dog.id === myDog?.id || packDogIds.has(dog.id) || sentDogIds.has(dog.id)) return false;
+            if (!dog.name) return false;
+            const nameWords = normalize(dog.name).split(' ').filter(Boolean);
+            // Every query word must be a prefix of at least one word in the dog's name
+            return queryWords.every((qw) => nameWords.some((nw) => nw.startsWith(qw)));
+          });
+
+        setSearchResults(results);
       } catch (err) {
         console.error('Dog search failed:', err);
         setSearchResults([]);

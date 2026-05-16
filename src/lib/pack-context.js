@@ -13,6 +13,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   serverTimestamp,
   arrayUnion,
   arrayRemove,
@@ -57,7 +58,17 @@ export function PackProvider({ children }) {
     // Real-time listener: confirmed pack links where this human is a member
     linksUnsubRef.current = onSnapshot(
       query(collection(db, 'packLinks'), where('humanIds', 'array-contains', user.uid)),
-      (snapshot) => setMyPack(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+      (snapshot) => {
+        const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const seen = new Set();
+        const unique = all.filter((link) => {
+          const key = link.dogIds?.slice().sort().join('_');
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setMyPack(unique);
+      }
     );
 
     // Real-time listener: incoming pending requests addressed to this human
@@ -123,12 +134,19 @@ export function PackProvider({ children }) {
       respondedAt: serverTimestamp(),
     });
 
-    // Sort both arrays so the document is queryable from either side
-    await addDoc(collection(db, 'packLinks'), {
-      dogIds: [fromDogId, toDogId].sort(),
-      humanIds: [fromHumanId, toHumanId].sort(),
-      createdAt: serverTimestamp(),
-    });
+    // Sort both arrays so the document is queryable from either side.
+    // Guard against duplicate packLinks for the same dog pair.
+    const sortedDogIds = [fromDogId, toDogId].sort();
+    const existing = await getDocs(
+      query(collection(db, 'packLinks'), where('dogIds', '==', sortedDogIds))
+    );
+    if (existing.empty) {
+      await addDoc(collection(db, 'packLinks'), {
+        dogIds: sortedDogIds,
+        humanIds: [fromHumanId, toHumanId].sort(),
+        createdAt: serverTimestamp(),
+      });
+    }
   }
 
   async function declinePackRequest(requestId) {
