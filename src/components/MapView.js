@@ -973,7 +973,7 @@ export default function MapView() {
                         }}
                         onClick={() => setCheckInVisibility('everyone')}
                       >
-                        Visible to Everyone
+                        Meet New Dogs
                       </button>
                       <button
                         style={{
