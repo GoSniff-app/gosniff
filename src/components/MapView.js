@@ -142,7 +142,6 @@ export default function MapView() {
   const [showStillSniffing, setShowStillSniffing] = useState(false);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [activeChatDog, setActiveChatDog] = useState(null);
-  const [isSatellite, setIsSatellite] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -422,7 +421,7 @@ export default function MapView() {
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, mapTypeControl: true, mapTypeControlOptions: { position: 8, style: 2 }, clickableIcons: false, padding: { right: 16 } }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, mapTypeControl: true, mapTypeControlOptions: { position: 8, style: 2, mapTypeIds: ['roadmap', 'satellite'] }, clickableIcons: false, padding: { right: 16 } }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
@@ -1461,36 +1460,6 @@ export default function MapView() {
       {showMenu && (<div style={{ position: 'fixed', inset: 0, zIndex: 250 }} onClick={() => setShowMenu(false)} />)}
 
       <NotificationPermission />
-
-      {/* Satellite / roadmap toggle */}
-      {map && (
-        <button
-          onClick={() => {
-            const next = !isSatellite;
-            setIsSatellite(next);
-            map.setMapTypeId(next ? 'satellite' : 'roadmap');
-          }}
-          title={isSatellite ? 'Switch to map view' : 'Switch to satellite view'}
-          style={{
-            position: 'fixed',
-            bottom: '96px',
-            right: '12px',
-            zIndex: 15,
-            background: '#fff',
-            border: '1px solid rgba(0,0,0,0.2)',
-            borderRadius: '8px',
-            padding: '6px 10px',
-            fontSize: '0.72rem',
-            fontWeight: 600,
-            color: 'var(--gs-forest)',
-            cursor: 'pointer',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-            letterSpacing: '0.02em',
-          }}
-        >
-          {isSatellite ? 'Map' : 'Satellite'}
-        </button>
-      )}
 
       {activeChatDog && myDog && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 450 }}>
