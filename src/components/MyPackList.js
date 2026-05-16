@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
+import { useChat } from '@/lib/chat-context';
 import PawLogo from './PawLogo';
 import PackMemberDetail from './PackMemberDetail';
 
@@ -40,6 +41,7 @@ export default function MyPackList({ onClose, onOpenChat }) {
     myPack, pendingReceived, pendingSent,
     acceptPackRequest, declinePackRequest, cancelPackRequest, sendPackRequest,
   } = usePack();
+  const { unreadCounts } = useChat();
 
   const [dogProfiles, setDogProfiles] = useState({});
   const [actionLoading, setActionLoading] = useState(null);
@@ -322,20 +324,38 @@ export default function MyPackList({ onClose, onOpenChat }) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <DogRow dog={friend} />
                       </div>
-                      {onOpenChat && friend && (
-                        <button
-                          title={`Message ${friend.name}`}
-                          onClick={(e) => { e.stopPropagation(); onOpenChat(friend); onClose(); }}
-                          style={{
-                            background: 'var(--gs-teal)', border: 'none', borderRadius: '8px',
-                            cursor: 'pointer', padding: '5px 8px', flexShrink: 0, lineHeight: 0,
-                          }}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 20 20" fill="white" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" />
-                          </svg>
-                        </button>
-                      )}
+                      {onOpenChat && friend && (() => {
+                        const convId = myDog ? [myDog.id, friend.id].sort().join('_') : null;
+                        const unread = convId ? (unreadCounts[convId] || 0) : 0;
+                        return (
+                          <button
+                            title={`Message ${friend.name}`}
+                            onClick={(e) => { e.stopPropagation(); onOpenChat(friend); onClose(); }}
+                            style={{
+                              position: 'relative',
+                              background: 'var(--gs-teal)', border: 'none', borderRadius: '8px',
+                              cursor: 'pointer', padding: '5px 8px', flexShrink: 0, lineHeight: 0,
+                            }}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 20 20" fill="white" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v8A1.5 1.5 0 0 1 16.5 14H9l-4 3v-3H3.5A1.5 1.5 0 0 1 2 12.5v-8z" />
+                            </svg>
+                            {unread > 0 && (
+                              <span style={{
+                                position: 'absolute', top: '-6px', right: '-6px',
+                                minWidth: '16px', height: '16px', borderRadius: '8px',
+                                background: 'var(--gs-coral)', color: '#fff',
+                                fontSize: '0.55rem', fontWeight: 700,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '1.5px solid #fff', padding: '0 3px',
+                                lineHeight: 1, boxSizing: 'border-box', pointerEvents: 'none',
+                              }}>
+                                {unread > 9 ? '9+' : unread}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

@@ -648,6 +648,19 @@ export default function MapView() {
                 {pendingReceived.length > 9 ? '9+' : pendingReceived.length}
               </span>
             )}
+            {totalUnreadCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '0px',
+                left: '0px',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: 'var(--gs-coral)',
+                border: '2px solid #fff',
+                pointerEvents: 'none',
+              }} />
+            )}
           </button>
         </div>
       </div>
