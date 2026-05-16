@@ -91,7 +91,12 @@ export function PackProvider({ children }) {
         where('fromHumanId', '==', user.uid),
         where('status', '==', 'pending')
       ),
-      (snapshot) => setPendingSent(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })))
+      (snapshot) => setPendingSent(
+        snapshot.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((r) => r.status === 'pending')
+      ),
+      (err) => console.error('[PackContext] pendingSent listener error (check Firestore index on fromHumanId+status):', err)
     );
 
     // Real-time listener: human doc for frenemyDogIds (private, stored on the human)
