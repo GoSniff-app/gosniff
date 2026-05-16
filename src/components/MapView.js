@@ -1189,7 +1189,7 @@ export default function MapView() {
                       </button>
                     </div>
                     <button
-                      className="btn-secondary w-full"
+                      className="btn-primary w-full"
                       style={{ padding: '12px', fontSize: '0.95rem', marginTop: '10px' }}
                       onClick={() => { setSelectedDog(null); setActiveChatDog(selectedDog); }}
                     >
