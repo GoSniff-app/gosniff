@@ -135,8 +135,13 @@ export function ChatProvider({ children }) {
       throw new Error(`Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`);
     }
 
-    const convoSnap = await getDoc(doc(db, 'conversations', conversationId));
-    if (!convoSnap.exists()) throw new Error('Conversation not found');
+    let convoSnap = await getDoc(doc(db, 'conversations', conversationId));
+    if (!convoSnap.exists()) {
+      const [dogA, dogB] = conversationId.split('_');
+      const otherDogId = dogA === fromDogId ? dogB : dogA;
+      await getOrCreateConversation(fromDogId, otherDogId);
+      convoSnap = await getDoc(doc(db, 'conversations', conversationId));
+    }
 
     const { humanIds } = convoSnap.data();
     const recipientHumanId = humanIds.find((id) => id !== user.uid);

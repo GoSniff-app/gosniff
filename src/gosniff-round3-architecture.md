@@ -78,7 +78,8 @@ packRequests/
     - toDogId: string         (the dog receiving the request)
     - fromHumanId: string     (human behind the sending dog)
     - toHumanId: string       (human behind the receiving dog)
-    - status: "pending" | "accepted" | "declined"
+    - status: "pending" | "accepted" | "declined" | "blocked"
+    - message: string | null          (optional note sent with request, e.g. "Wanna sniff butts sometime?")
     - createdAt: timestamp
     - respondedAt: timestamp | null
 ```
@@ -115,6 +116,62 @@ This is the big architecture decision. Here's the tradeoff:
 **Recommendation: Separate collection.** Here's why:
 
 For a pilot with 10-20 users, either approach works. But the array approach creates a dead end: once you need to filter the map by "friends only," you'd have to fetch ALL checked-in dogs, then client-side filter against the friends array. That means downloading every checked-in dog's data even when you only want to see friends. With a separate collection, you can fetch your friend list once on load, cache it, and use it to filter efficiently.
+
+---
+
+## Pack Request Rules (Updated May 15, 2026)
+
+Three actions on a received pack request: **Accept / Decline / Block**
+
+- **Decline** = "not right now." The sender CAN send another request later. This is not permanent.
+- **Block** = permanent. Prevents all future pack requests from that dog/human. Unblock option available in Blocked Dogs list.
+- **Accept** = adds to pack, unlocks messaging.
+
+**Key behavior details:**
+- Blocking does NOT hide the blocked dog from the map. The user may want to see them to avoid them, or add them to their Frenemy list.
+- Unblocking is always available from the Blocked Dogs list.
+- A declined request can be resent by the original sender (no cooldown period for now).
+
+### Sending a Pack Request with a Note
+
+When sending a pack request, the user can include an optional message (like LinkedIn connection requests). This makes the request feel personal instead of random.
+
+- Message field placeholder text: "Wanna sniff butts sometime?"
+- Message is stored as `message` field on the packRequests document (string | null).
+- The message is shown to the recipient alongside the request in the Pending Requests list.
+
+### Non-Pack Dog Communication
+
+- Non-pack dogs CANNOT message you directly (no cold messaging to strangers).
+- The only way a non-pack dog can contact you is by sending a pack request with a note.
+- Messaging only unlocks once both sides have accepted the pack request.
+
+### Blocking from Messages (Future)
+
+When messaging is opened to non-pack dogs (future feature), blocking and deleting conversations are separate actions:
+- **Block** = prevents future pack requests and messages. Does NOT hide from map.
+- **Delete conversation** = removes the message thread.
+- **Unblock** = available from Blocked Dogs list.
+
+### UI Layout in Hamburger / My Pack
+
+```
+[dog photo] Dog Name
+            Breed
+---
+Edit Profile
+Blocked Dogs (2)       <-- NEW, above My Pack
+My Pack (3)
+  Pending Requests     <-- at top of My Pack
+  Requests Sent        <-- below Pending Requests
+  Pack Members         <-- below Requests Sent
+Sign Out
+```
+
+- Blocked Dogs list sits above My Pack in the hamburger menu
+- Inside My Pack: Pending Requests at top, then Requests Sent, then pack members
+- Red badge dot on menu still exists as a quick indicator, but the Pending Requests list is the primary way users manage incoming requests
+- Each pending request shows: dog photo, dog name, the optional message, and three buttons (Accept / Decline / Block)
 
 ### Updated `dogs/` Document (New Fields)
 
@@ -185,15 +242,19 @@ State:
   - myPack: []              (list of friend dog IDs, loaded once on auth)
   - pendingReceived: []     (incoming pack requests)
   - pendingSent: []         (outgoing pack requests)
+  - blockedDogIds: []       (dogs this user has blocked)
 
 Functions:
-  - sendPackRequest(fromDogId, toDogId)
+  - sendPackRequest(fromDogId, toDogId, message?)
   - acceptPackRequest(requestId)
   - declinePackRequest(requestId)
+  - blockDog(requestId)
+  - unblockDog(dogId)
   - cancelPackRequest(requestId)
   - removeFromPack(linkId)
   - isInMyPack(dogId) -> boolean
-  - getPackRequestStatus(dogId) -> "none" | "sent" | "received" | "accepted"
+  - isBlocked(dogId) -> boolean
+  - getPackRequestStatus(dogId) -> "none" | "sent" | "received" | "accepted" | "blocked"
 ```
 
 ---
@@ -254,10 +315,12 @@ New:        [ Add to My Pack ]    (or "Pending..." or "In Your Pack" based on st
 ```
 
 Button states:
-- No relationship: "Add to My Pack" (teal, tappable)
-- Request sent: "Pack Request Sent" (gray, disabled)
-- Request received: "Accept Pack Request" (teal) + "Decline" (gray)
+- No relationship: "Invite to Your Pack" (teal, tappable) — opens message field with placeholder "Wanna sniff butts sometime?"
+- Request sent: "Pack Request Sent" (gray, with Cancel option)
+- Request received: "Accept Pack Request" (teal) + "Decline" (gray) + "Block" (red/subtle)
 - Already friends: "In Your Pack" (green checkmark, with option to remove)
+- Blocked by you: "Blocked" (gray, disabled) — unblock available in Blocked Dogs list
+- Previously declined: "Invite to Your Pack" (teal, tappable again — decline is not permanent)
 
 ### Menu Dropdown
 
@@ -268,17 +331,24 @@ Add "My Pack" menu item between "Edit Profile" and "Sign Out":
             Breed
 ---
 Edit Profile
-My Pack (3)        <-- NEW, with count badge
+Blocked Dogs (2)   <-- NEW, above My Pack
+My Pack (3)        <-- with count badge
 Sign Out
 ```
 
 ### My Pack Screen (New Component)
 
-Simple list view showing:
-- Pack members (friends) with dog photo, name, breed
-- Pending requests received (with Accept/Decline buttons)
-- Pending requests sent (with Cancel button)
-- "Remove from pack" option on each friend (with confirmation)
+List view organized in this order:
+- **Pending Requests** (received) at the top — with Accept/Decline/Block buttons and the sender's optional message
+- **Requests Sent** (outgoing) — with Cancel button
+- **Pack Members** (confirmed friends) — with dog photo, name, breed, and "Remove from pack" option (with confirmation)
+
+### Blocked Dogs Screen
+
+Accessible from the hamburger menu above My Pack:
+- Simple list of blocked dogs with photo, name, breed
+- "Unblock" button on each entry
+- Unblocking does NOT automatically send or accept a pack request — it just re-opens the door for future requests
 
 ---
 
@@ -289,7 +359,8 @@ This is the part most vibe-coded apps skip entirely. For the pilot, the critical
 ```
 packRequests:
   - Anyone authenticated can CREATE a request (fromHumanId must match their uid)
-  - Only the recipient can UPDATE status to "accepted" or "declined"
+  - Cannot CREATE a request if recipient has blocked the sender
+  - Only the recipient can UPDATE status to "accepted", "declined", or "blocked"
   - Only the sender can DELETE (cancel) a pending request
   - Users can only READ requests where they are sender OR recipient
 

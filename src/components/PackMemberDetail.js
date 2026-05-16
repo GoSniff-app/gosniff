@@ -176,7 +176,7 @@ export default function PackMemberDetail({ dog, link, onClose, onOpenChat }) {
           style={{ marginBottom: '12px', fontSize: '0.95rem' }}
           onClick={handleSayHi}
         >
-          Say Hi to {dog.name}
+          Message {dog.name}
         </button>
 
         {/* Mute toggle row */}
