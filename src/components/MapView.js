@@ -142,6 +142,7 @@ export default function MapView() {
   const [showStillSniffing, setShowStillSniffing] = useState(false);
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [activeChatDog, setActiveChatDog] = useState(null);
+  const [mapType, setMapType] = useState('roadmap');
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -415,7 +416,7 @@ export default function MapView() {
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: false, mapTypeControl: true, mapTypeControlOptions: { position: 8, style: 2, mapTypeIds: ['roadmap', 'satellite'] }, clickableIcons: false }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: false, mapTypeControl: false, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
@@ -1455,34 +1456,58 @@ export default function MapView() {
 
       <NotificationPermission />
 
-      {/* Custom zoom controls — aligned with Map/Satellite toggle */}
+      {/* Map controls — zoom + map type grouped */}
       <div style={{
         position: 'fixed',
-        right: '24px',
-        bottom: '160px',
+        right: '16px',
+        bottom: '120px',
         zIndex: 5,
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-        borderRadius: '2px',
-        overflow: 'hidden',
+        gap: '8px',
+        alignItems: 'flex-end',
       }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+          borderRadius: '4px',
+          overflow: 'hidden',
+        }}>
+          <button
+            onClick={() => mapRef.current?.setZoom((mapRef.current?.getZoom() || 14) + 1)}
+            style={{
+              width: '40px', height: '40px', border: 'none', borderBottom: '1px solid #e6e6e6',
+              background: '#fff', cursor: 'pointer', fontSize: '18px', color: '#666',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >+</button>
+          <button
+            onClick={() => mapRef.current?.setZoom((mapRef.current?.getZoom() || 14) - 1)}
+            style={{
+              width: '40px', height: '40px', border: 'none',
+              background: '#fff', cursor: 'pointer', fontSize: '18px', color: '#666',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >−</button>
+        </div>
         <button
-          onClick={() => mapRef.current?.setZoom((mapRef.current?.getZoom() || 14) + 1)}
-          style={{
-            width: '40px', height: '40px', border: 'none', borderBottom: '1px solid #e6e6e6',
-            background: '#fff', cursor: 'pointer', fontSize: '18px', color: '#666',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          onClick={() => {
+            const m = mapRef.current;
+            if (m) {
+              const next = mapType === 'roadmap' ? 'satellite' : 'roadmap';
+              m.setMapTypeId(next);
+              setMapType(next);
+            }
           }}
-        >+</button>
-        <button
-          onClick={() => mapRef.current?.setZoom((mapRef.current?.getZoom() || 14) - 1)}
           style={{
-            width: '40px', height: '40px', border: 'none',
-            background: '#fff', cursor: 'pointer', fontSize: '18px', color: '#666',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '6px 12px', background: '#fff', border: 'none',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.3)', borderRadius: '4px',
+            cursor: 'pointer', fontSize: '13px', fontWeight: '500', color: '#333',
           }}
-        >−</button>
+        >
+          {mapType === 'satellite' ? 'Map' : 'Satellite'}
+        </button>
       </div>
 
       {activeChatDog && myDog && (
