@@ -67,7 +67,7 @@ function compressImage(file, maxWidth = 400, quality = 0.7) {
   });
 }
 
-export default function JoinThePack() {
+export default function JoinThePack({ onBack }) {
   const { signUp } = useAuth();
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
@@ -139,6 +139,23 @@ export default function JoinThePack() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 paw-pattern" style={{ background: 'var(--gs-bg)' }}>
       <div className="gs-card w-full max-w-md slide-up">
+        {/* Back button — only shown when navigated from Sign In */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '4px',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--gs-forest)', fontSize: '0.875rem', fontWeight: 600,
+              padding: '0 0 16px 0',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </button>
+        )}
         {/* Progress bar */}
         <div className="flex gap-2 mb-6">
           {Array.from({ length: totalSteps }, (_, i) => (

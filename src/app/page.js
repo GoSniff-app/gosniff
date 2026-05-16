@@ -85,7 +85,7 @@ function AppContent() {
     </>
   );
   if (user && dogs.length === 0) return <JoinThePack />;
-  if (authMode === 'join') return <JoinThePack />;
+  if (authMode === 'join') return <JoinThePack onBack={() => setAuthMode('signin')} />;
   if (authMode === 'signin') return <SignIn onSwitchToJoin={() => setAuthMode('join')} />;
 
   return (
