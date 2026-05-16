@@ -422,7 +422,7 @@ export default function MapView() {
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
-        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, clickableIcons: false }}>
+        options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: true, zoomControlOptions: { position: 8 }, clickableIcons: false, padding: { right: 16 } }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
             <div
