@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { onMessage } from 'firebase/messaging';
-import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth-context';
 import { messaging, db, getOrCreateFCMToken } from '@/lib/firebase';
 
@@ -15,9 +15,11 @@ async function saveTokenToFirestore(uid, token) {
   const snap = await getDoc(humanRef);
   const existing = snap.data()?.fcmTokens || [];
   if (existing.some((t) => t.token === token)) return;
-  await updateDoc(humanRef, {
-    fcmTokens: arrayUnion({ token, createdAt: serverTimestamp() }),
-  });
+  // serverTimestamp() is not allowed inside arrayUnion — use Date.now() instead.
+  // setDoc with merge:true handles the rare case where the human doc is missing.
+  await setDoc(humanRef, {
+    fcmTokens: arrayUnion({ token, createdAt: Date.now() }),
+  }, { merge: true });
 }
 
 export default function NotificationPermission() {
