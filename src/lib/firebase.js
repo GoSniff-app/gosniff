@@ -30,6 +30,7 @@ export async function getOrCreateFCMToken() {
   if (!messaging) return null;
   try {
     const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
     const token = await getToken(messaging, {
       vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
       serviceWorkerRegistration: swRegistration,
