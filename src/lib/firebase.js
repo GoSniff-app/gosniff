@@ -29,6 +29,7 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your-api-key-here') {
 export async function getOrCreateFCMToken() {
   if (!messaging) return null;
   try {
+    await new Promise(r => setTimeout(r, 2000));
     const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
     const token = await getToken(messaging, {
