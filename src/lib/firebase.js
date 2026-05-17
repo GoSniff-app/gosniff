@@ -29,8 +29,10 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your-api-key-here') {
 export async function getOrCreateFCMToken() {
   if (!messaging) return null;
   try {
+    const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     const token = await getToken(messaging, {
       vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: swRegistration,
     });
     return token || null;
   } catch (err) {
@@ -38,5 +40,4 @@ export async function getOrCreateFCMToken() {
     return null;
   }
 }
-
 export { auth, db, messaging };
