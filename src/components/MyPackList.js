@@ -203,7 +203,7 @@ export default function MyPackList({ onClose, onOpenChat }) {
 
         {/* ── Find a Dog ── */}
         <div style={{ marginBottom: '6px' }}>
-          <p style={sectionLabel}>Find a Dog</p>
+          <p style={sectionLabel}>Find Your Dog Friends</p>
           <div style={{ position: 'relative' }}>
             <input
               type="text"
@@ -211,13 +211,25 @@ export default function MyPackList({ onClose, onOpenChat }) {
               placeholder="Search by dog name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: '36px' }}
+              style={{ paddingLeft: '36px', paddingRight: searchTerm ? '36px' : undefined }}
             />
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
               style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }}>
               <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.8" />
               <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                aria-label="Clear search"
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', opacity: 0.5, display: 'flex', alignItems: 'center' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            )}
           </div>
 
           {searchTerm.trim() && (
