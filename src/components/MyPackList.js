@@ -65,7 +65,8 @@ export default function MyPackList({ onClose, onOpenChat }) {
 
     Promise.all([...idsToFetch].map((id) => getDoc(doc(db, 'dogs', id)))).then((snaps) => {
       const profiles = {};
-      snaps.forEach((snap) => { if (snap.exists()) profiles[snap.id] = { id: snap.id, ...snap.data() }; });
+      // null = fetched but dog no longer exists (deleted account); undefined = not yet fetched
+      snaps.forEach((snap) => { profiles[snap.id] = snap.exists() ? { id: snap.id, ...snap.data() } : null; });
       setDogProfiles(profiles);
     });
   }, [myPack, pendingReceived, pendingSent, myDog?.id]);
@@ -303,6 +304,7 @@ export default function MyPackList({ onClose, onOpenChat }) {
               {myPack.map((link) => {
                 const friendDogId = link.dogIds?.find((id) => id !== myDog?.id);
                 const friend = dogProfiles[friendDogId];
+                if (friend === null) return null; // dog was deleted — skip ghost row
                 return (
                   <div
                     key={link.id}
