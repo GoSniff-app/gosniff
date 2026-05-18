@@ -2,7 +2,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functionsV1 = require('firebase-functions/v1');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, Timestamp } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
 initializeApp();
@@ -39,6 +39,17 @@ exports.sweepStaleCheckIns = onSchedule(
     if (count > 0) {
       await batch.commit();
       console.log(`Swept ${count} stale check-in(s).`);
+    }
+
+    // Delete expired alerts (expiresAt in the past)
+    const expiredAlertsSnap = await db
+      .collection('alerts')
+      .where('expiresAt', '<', Timestamp.now())
+      .get();
+
+    if (!expiredAlertsSnap.empty) {
+      await Promise.all(expiredAlertsSnap.docs.map((d) => d.ref.delete()));
+      console.log(`Deleted ${expiredAlertsSnap.size} expired alert(s).`);
     }
   }
 );
