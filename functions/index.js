@@ -40,16 +40,69 @@ exports.sweepStaleCheckIns = onSchedule(
       await batch.commit();
       console.log(`Swept ${count} stale check-in(s).`);
     }
+  }
+);
 
-    // Delete expired alerts (expiresAt in the past)
-    const expiredAlertsSnap = await db
-      .collection('alerts')
-      .where('expiresAt', '<', Timestamp.now())
-      .get();
+// ─── Hourly Firestore hygiene ─────────────────────────────────────────────────
 
-    if (!expiredAlertsSnap.empty) {
-      await Promise.all(expiredAlertsSnap.docs.map((d) => d.ref.delete()));
-      console.log(`Deleted ${expiredAlertsSnap.size} expired alert(s).`);
+exports.hourlyCleanup = onSchedule(
+  { schedule: 'every 60 minutes', region: 'us-central1' },
+  async () => {
+    const db = getFirestore();
+
+    // 1. Alerts: delete expired (expiresAt in the past) OR inactive (denied early)
+    const [expiredSnap, inactiveSnap] = await Promise.all([
+      db.collection('alerts').where('expiresAt', '<', Timestamp.now()).get(),
+      db.collection('alerts').where('active', '==', false).get(),
+    ]);
+    const alertRefMap = new Map();
+    [...expiredSnap.docs, ...inactiveSnap.docs].forEach((d) => alertRefMap.set(d.id, d.ref));
+    if (alertRefMap.size > 0) {
+      await Promise.all([...alertRefMap.values()].map((ref) => ref.delete()));
+      console.log(`Deleted ${alertRefMap.size} stale alert(s).`);
+    }
+
+    // 2. Messages: delete read messages older than 24 hours.
+    // Only Timestamp-valued readAt fields satisfy the < filter, so null/unset are naturally excluded.
+    const msgCutoff = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    const oldReadMsgsSnap = await db.collectionGroup('messages').where('readAt', '<', msgCutoff).get();
+    if (!oldReadMsgsSnap.empty) {
+      await Promise.all(oldReadMsgsSnap.docs.map((d) => d.ref.delete()));
+      console.log(`Deleted ${oldReadMsgsSnap.size} old read message(s).`);
+    }
+
+    // 3. Orphaned pack docs: packLinks/packRequests whose referenced dog no longer exists.
+    // Fetch all pack docs, collect unique dog IDs, batch-check existence, delete orphans.
+    const [linksSnap, requestsSnap] = await Promise.all([
+      db.collection('packLinks').get(),
+      db.collection('packRequests').get(),
+    ]);
+
+    const dogIdsToCheck = new Set();
+    linksSnap.docs.forEach((d) => (d.data().dogIds || []).forEach((id) => dogIdsToCheck.add(id)));
+    requestsSnap.docs.forEach((d) => {
+      const { fromDogId, toDogId } = d.data();
+      if (fromDogId) dogIdsToCheck.add(fromDogId);
+      if (toDogId) dogIdsToCheck.add(toDogId);
+    });
+
+    const dogChecks = await Promise.all([...dogIdsToCheck].map((id) => db.collection('dogs').doc(id).get()));
+    const existingDogIds = new Set(dogChecks.filter((s) => s.exists).map((s) => s.id));
+
+    const orphanedRefs = [];
+    linksSnap.docs.forEach((d) => {
+      if ((d.data().dogIds || []).some((id) => !existingDogIds.has(id))) orphanedRefs.push(d.ref);
+    });
+    requestsSnap.docs.forEach((d) => {
+      const { fromDogId, toDogId } = d.data();
+      if ((fromDogId && !existingDogIds.has(fromDogId)) || (toDogId && !existingDogIds.has(toDogId))) {
+        orphanedRefs.push(d.ref);
+      }
+    });
+
+    if (orphanedRefs.length > 0) {
+      await Promise.all(orphanedRefs.map((ref) => ref.delete()));
+      console.log(`Deleted ${orphanedRefs.length} orphaned pack document(s).`);
     }
   }
 );
