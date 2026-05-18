@@ -27,18 +27,35 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your-api-key-here') {
 }
 
 export async function getOrCreateFCMToken() {
-  if (!messaging) return null;
+  if (!messaging) {
+    console.warn('[FCM] messaging is null — Firebase not initialized or not in browser');
+    return null;
+  }
+  const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+  if (!vapidKey) {
+    console.error('[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set — token cannot be generated');
+    return null;
+  }
+  if (!('serviceWorker' in navigator)) {
+    console.warn('[FCM] Service workers not supported in this browser');
+    return null;
+  }
   try {
+    console.log('[FCM] Registering service worker...');
     await new Promise(r => setTimeout(r, 2000));
     const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    console.log('[FCM] Service worker registered, waiting for ready...');
     await navigator.serviceWorker.ready;
-    const token = await getToken(messaging, {
-      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
-      serviceWorkerRegistration: swRegistration,
-    });
+    console.log('[FCM] Service worker ready, requesting token...');
+    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+    if (token) {
+      console.log('[FCM] Token obtained successfully (first 20 chars):', token.slice(0, 20));
+    } else {
+      console.warn('[FCM] getToken returned empty — permission may not be granted or VAPID key is wrong');
+    }
     return token || null;
   } catch (err) {
-    console.error('FCM getToken failed:', err);
+    console.error('[FCM] getToken failed:', err.code || err.message, err);
     return null;
   }
 }

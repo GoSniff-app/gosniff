@@ -14,12 +14,14 @@ async function saveTokenToFirestore(uid, token) {
   const humanRef = doc(db, 'humans', uid);
   const snap = await getDoc(humanRef);
   const existing = snap.data()?.fcmTokens || [];
-  if (existing.some((t) => t.token === token)) return;
-  // serverTimestamp() is not allowed inside arrayUnion — use Date.now() instead.
-  // setDoc with merge:true handles the rare case where the human doc is missing.
+  if (existing.some((t) => t.token === token)) {
+    console.log('[FCM] Token already in Firestore, skipping save');
+    return;
+  }
   await setDoc(humanRef, {
     fcmTokens: arrayUnion({ token, createdAt: Date.now() }),
   }, { merge: true });
+  console.log('[FCM] Token saved to Firestore for uid:', uid);
 }
 
 export default function NotificationPermission() {
@@ -50,12 +52,20 @@ export default function NotificationPermission() {
   // Show prompt if conditions met
   useEffect(() => {
     if (!user || dogs.length === 0) return;
-    if (typeof Notification === 'undefined') return;
-    if (Notification.permission !== 'default') return;
-
+    if (typeof Notification === 'undefined') {
+      console.log('[FCM] Notifications API not available in this browser');
+      return;
+    }
+    if (Notification.permission !== 'default') {
+      console.log('[FCM] Prompt suppressed — Notification.permission is:', Notification.permission);
+      return;
+    }
     const dismissCount = parseInt(localStorage.getItem(DISMISS_KEY) || '0', 10);
-    if (dismissCount >= MAX_DISMISSALS) return;
-
+    if (dismissCount >= MAX_DISMISSALS) {
+      console.log('[FCM] Prompt suppressed — dismissed', dismissCount, 'times (max', MAX_DISMISSALS, ')');
+      return;
+    }
+    console.log('[FCM] Showing notification permission prompt');
     setVisible(true);
   }, [user, dogs]);
 
