@@ -23,6 +23,7 @@ import {
   deleteDoc,
   serverTimestamp,
   getDocs,
+  deleteField,
 } from 'firebase/firestore';
 
 const AuthContext = createContext({});
@@ -176,6 +177,45 @@ export function AuthProvider({ children }) {
   }
 
   async function deleteAccount(dogId) {
+    try {
+      // Clean up conversations involving this dog
+      const convoSnap = await getDocs(
+        query(collection(db, 'conversations'), where('dogIds', 'array-contains', dogId))
+      );
+      await Promise.all(convoSnap.docs.map(async (convoDoc) => {
+        const { humanIds } = convoDoc.data();
+        // Delete all messages in the subcollection
+        const msgSnap = await getDocs(collection(db, 'conversations', convoDoc.id, 'messages'));
+        await Promise.all(msgSnap.docs.map((m) => deleteDoc(m.ref)));
+        // Remove unreadCounts key from the other human's doc
+        const otherHumanId = humanIds?.find((id) => id !== user?.uid);
+        if (otherHumanId) {
+          await updateDoc(doc(db, 'humans', otherHumanId), {
+            [`unreadCounts.${convoDoc.id}`]: deleteField(),
+          });
+        }
+        await deleteDoc(convoDoc.ref);
+      }));
+
+      // Clean up packLinks referencing this dog
+      const linksSnap = await getDocs(
+        query(collection(db, 'packLinks'), where('dogIds', 'array-contains', dogId))
+      );
+      await Promise.all(linksSnap.docs.map((d) => deleteDoc(d.ref)));
+
+      // Clean up packRequests referencing this dog (two queries — no OR in Firestore)
+      const [fromSnap, toSnap] = await Promise.all([
+        getDocs(query(collection(db, 'packRequests'), where('fromDogId', '==', dogId))),
+        getDocs(query(collection(db, 'packRequests'), where('toDogId', '==', dogId))),
+      ]);
+      await Promise.all([
+        ...fromSnap.docs.map((d) => deleteDoc(d.ref)),
+        ...toSnap.docs.map((d) => deleteDoc(d.ref)),
+      ]);
+    } catch (err) {
+      console.error('deleteAccount cleanup error:', err);
+    }
+
     await deleteDoc(doc(db, 'dogs', dogId));
     if (user) {
       await deleteDoc(doc(db, 'humans', user.uid));

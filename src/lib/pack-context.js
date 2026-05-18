@@ -17,6 +17,7 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  deleteField,
 } from 'firebase/firestore';
 
 const PackContext = createContext({});
@@ -166,6 +167,31 @@ export function PackProvider({ children }) {
   }
 
   async function removeFromPack(linkId) {
+    try {
+      const linkSnap = await getDoc(doc(db, 'packLinks', linkId));
+      if (linkSnap.exists()) {
+        const { dogIds, humanIds } = linkSnap.data();
+        const conversationId = (dogIds || []).slice().sort().join('_');
+        const convoRef = doc(db, 'conversations', conversationId);
+        const convoSnap = await getDoc(convoRef);
+        if (convoSnap.exists()) {
+          // Delete all messages
+          const msgSnap = await getDocs(collection(db, 'conversations', conversationId, 'messages'));
+          await Promise.all(msgSnap.docs.map((m) => deleteDoc(m.ref)));
+          // Remove unreadCounts key from both humans
+          await Promise.all(
+            (humanIds || []).map((humanId) =>
+              updateDoc(doc(db, 'humans', humanId), {
+                [`unreadCounts.${conversationId}`]: deleteField(),
+              })
+            )
+          );
+          await deleteDoc(convoRef);
+        }
+      }
+    } catch (err) {
+      console.error('removeFromPack cleanup error:', err);
+    }
     await deleteDoc(doc(db, 'packLinks', linkId));
   }
 
