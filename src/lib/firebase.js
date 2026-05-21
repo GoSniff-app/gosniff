@@ -42,14 +42,16 @@ export async function getOrCreateFCMToken() {
   }
   try {
     console.log('[FCM] Registering service worker...');
-    await new Promise(r => setTimeout(r, 2000));
-    const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    console.log('[FCM] Service worker registered, waiting for ready...');
-    await navigator.serviceWorker.ready;
-    console.log('[FCM] Service worker ready, requesting token...');
+    await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    console.log('[FCM] Waiting for active service worker...');
+    // Must use the registration from `ready` (active SW), not from `register()` (may
+    // still be installing). Passing an installing SW to getToken() causes the FIS auth
+    // token fetch to fail, which results in a 401 on the FCM registration POST.
+    const swRegistration = await navigator.serviceWorker.ready;
+    console.log('[FCM] Service worker active, requesting token...');
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
     if (token) {
-      console.log('[FCM] Token obtained successfully (first 20 chars):', token.slice(0, 20));
+      console.log('[FCM] Token obtained (first 20 chars):', token.slice(0, 20));
     } else {
       console.warn('[FCM] getToken returned empty — permission may not be granted or VAPID key is wrong');
     }

@@ -71,19 +71,25 @@ export default function NotificationPermission() {
 
   if (!visible) return null;
 
-  async function handleAllow() {
+  function handleAllow() {
+    // requestPermission() must be the first synchronous call inside the click handler.
+    // Making handleAllow async or calling setState before it breaks the user-gesture
+    // chain on iOS Safari and some Android WebViews, causing a silent "denied".
+    const permissionPromise = Notification.requestPermission();
     setRequesting(true);
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        const token = await getOrCreateFCMToken();
-        if (token) await saveTokenToFirestore(user.uid, token);
-      }
-    } catch (err) {
-      console.error('Notification permission error:', err);
-    }
-    setVisible(false);
-    setRequesting(false);
+    permissionPromise
+      .then(async (permission) => {
+        try {
+          if (permission === 'granted') {
+            const token = await getOrCreateFCMToken();
+            if (token) await saveTokenToFirestore(user.uid, token);
+          }
+        } catch (err) {
+          console.error('Notification flow error:', err);
+        }
+        setVisible(false);
+        setRequesting(false);
+      });
   }
 
   function handleDismiss() {
