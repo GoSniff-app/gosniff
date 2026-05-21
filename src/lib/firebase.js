@@ -37,6 +37,7 @@ export async function getOrCreateFCMToken() {
     console.error('[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set — token cannot be generated');
     return null;
   }
+  console.log('[FCM] Config check — projectId:', firebaseConfig.projectId, '| appId:', firebaseConfig.appId, '| vapidKey length:', vapidKey.length, '| vapidKey prefix:', vapidKey.slice(0, 12));
   if (!('serviceWorker' in navigator)) {
     console.warn('[FCM] Service workers not supported in this browser');
     return null;
