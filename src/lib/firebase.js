@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getMessaging, getToken } from 'firebase/messaging';
+import { getInstallations, getId, getToken as getFISToken } from 'firebase/installations';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -48,7 +49,23 @@ export async function getOrCreateFCMToken() {
     // still be installing). Passing an installing SW to getToken() causes the FIS auth
     // token fetch to fail, which results in a 401 on the FCM registration POST.
     const swRegistration = await navigator.serviceWorker.ready;
-    console.log('[FCM] Service worker active, requesting token...');
+    console.log('[FCM] Service worker active, testing Firebase Installations...');
+
+    // Explicitly probe FIS so we can see whether the auth token fetch is the failure point.
+    // If this throws, the API key's restrictions are missing "Firebase Installations API"
+    // (firebaseinstallations.googleapis.com) — add it in GCP Console → Credentials.
+    try {
+      const installations = getInstallations(app);
+      const fid = await getId(installations);
+      console.log('[FIS] Installation ID OK:', fid.slice(0, 8) + '…');
+      const fisToken = await getFISToken(installations, false);
+      console.log('[FIS] Auth token OK:', fisToken.slice(0, 15) + '…');
+    } catch (fisErr) {
+      console.error('[FIS] FAILED — this is the root cause of the FCM 401:', fisErr.code || fisErr.message, fisErr);
+      return null;
+    }
+
+    console.log('[FCM] Requesting FCM token...');
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
     if (token) {
       console.log('[FCM] Token obtained (first 20 chars):', token.slice(0, 20));
