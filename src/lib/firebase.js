@@ -38,6 +38,7 @@ export async function getOrCreateFCMToken() {
     return null;
   }
   console.log('[FCM] Config check — projectId:', firebaseConfig.projectId, '| appId:', firebaseConfig.appId, '| vapidKey length:', vapidKey.length, '| vapidKey prefix:', vapidKey.slice(0, 12));
+  console.log('[FCM] VAPID RAW:', JSON.stringify(vapidKey));
   if (!('serviceWorker' in navigator)) {
     console.warn('[FCM] Service workers not supported in this browser');
     return null;
