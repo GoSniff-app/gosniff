@@ -2,6 +2,11 @@ importScripts('https://www.gstatic.com/firebasejs/12.12.1/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/12.12.1/firebase-installations-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging-compat.js');
 
+// Take control immediately when a new version is deployed, rather than waiting
+// for all tabs to close. This ensures getToken() always talks to the current SW.
+self.addEventListener('install', (event) => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => { event.waitUntil(clients.claim()); });
+
 firebase.initializeApp({
   apiKey: 'AIzaSyBqbIi_zSIzi9x4z34i5IgBtfOvgn63za4',
   authDomain: 'gosniff415.firebaseapp.com',
