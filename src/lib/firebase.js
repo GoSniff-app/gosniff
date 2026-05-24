@@ -1,7 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getMessaging, getToken } from 'firebase/messaging';
+import { getMessaging, getToken, deleteToken } from 'firebase/messaging';
 import { getInstallations, getId, getToken as getFISToken } from 'firebase/installations';
 
 const firebaseConfig = {
@@ -27,7 +27,8 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your-api-key-here') {
   }
 }
 
-export async function getOrCreateFCMToken() {
+// retryCount is internal — callers always call getOrCreateFCMToken() with no args.
+export async function getOrCreateFCMToken(retryCount = 0) {
   if (!messaging) {
     console.warn('[FCM] messaging is null — Firebase not initialized or not in browser');
     return null;
@@ -37,15 +38,17 @@ export async function getOrCreateFCMToken() {
     console.error('[FCM] NEXT_PUBLIC_FIREBASE_VAPID_KEY is not set — token cannot be generated');
     return null;
   }
-  console.log('[FCM] Config check — projectId:', firebaseConfig.projectId, '| appId:', firebaseConfig.appId, '| vapidKey length:', vapidKey.length, '| vapidKey prefix:', vapidKey.slice(0, 12));
+  console.log('[FCM] Config check — vapidKey prefix:', vapidKey.slice(0, 12), '| attempt:', retryCount + 1);
 
-  // Wait for Firebase Auth to finish its IndexedDB initialization before FIS/FCM
-  // touches the same database. onAuthStateChanged fires after Auth has read its
-  // persisted state, so by the time we resolve here Auth's IDBDatabase is stable.
+  // Firebase Auth fires onAuthStateChanged while still writing its user record back to
+  // IndexedDB (the notifyAuthListeners → _updateCurrentUser cycle). If FIS opens its own
+  // IDB connection at that exact moment it gets "IDBDatabase is closing". We therefore
+  // wait for the auth notification AND then add a 500 ms settle buffer so Auth's storage
+  // writes are fully committed before we touch IDB.
   await new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, () => {
       unsub();
-      resolve();
+      setTimeout(resolve, 500);
     });
   });
 
@@ -54,18 +57,12 @@ export async function getOrCreateFCMToken() {
     return null;
   }
   try {
-    console.log('[FCM] Registering service worker...');
     await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    console.log('[FCM] Waiting for active service worker...');
-    // Must use the registration from `ready` (active SW), not from `register()` (may
-    // still be installing). Passing an installing SW to getToken() causes the FIS auth
-    // token fetch to fail, which results in a 401 on the FCM registration POST.
+    // Use `ready` (active SW) not the registration from `register()` (may still be installing).
     const swRegistration = await navigator.serviceWorker.ready;
-    console.log('[FCM] Service worker active, testing Firebase Installations...');
+    console.log('[FCM] Service worker active.');
 
-    // Explicitly probe FIS so we can see whether the auth token fetch is the failure point.
-    // If this throws, the API key's restrictions are missing "Firebase Installations API"
-    // (firebaseinstallations.googleapis.com) — add it in GCP Console → Credentials.
+    // Probe FIS first so any IDB race surfaces here (with retry) rather than inside getToken.
     try {
       const installations = getInstallations(app);
       const fid = await getId(installations);
@@ -73,11 +70,19 @@ export async function getOrCreateFCMToken() {
       const fisToken = await getFISToken(installations, false);
       console.log('[FIS] Auth token OK:', fisToken.slice(0, 15) + '…');
     } catch (fisErr) {
-      console.error('[FIS] FAILED — this is the root cause of the FCM 401:', fisErr.code || fisErr.message, fisErr);
+      // InvalidStateError means Auth is still closing its IDB connection.
+      // Retry with exponential backoff (500 ms → 1 s → 2 s).
+      if (fisErr instanceof DOMException && fisErr.name === 'InvalidStateError' && retryCount < 3) {
+        const delay = 500 * Math.pow(2, retryCount);
+        console.warn(`[FIS] IndexedDB race (attempt ${retryCount + 1}), retrying in ${delay} ms…`);
+        await new Promise(r => setTimeout(r, delay));
+        return getOrCreateFCMToken(retryCount + 1);
+      }
+      console.error('[FIS] FAILED:', fisErr.code || fisErr.message, fisErr);
       return null;
     }
 
-    console.log('[FCM] Requesting FCM token...');
+    console.log('[FCM] Requesting FCM token…');
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
     if (token) {
       console.log('[FCM] Token obtained (first 20 chars):', token.slice(0, 20));
@@ -86,6 +91,13 @@ export async function getOrCreateFCMToken() {
     }
     return token || null;
   } catch (err) {
+    // On the first attempt, a stale push subscription from an old VAPID key causes a 401.
+    // Delete the cached token so Chrome will create a fresh subscription, then retry once.
+    if (retryCount === 0) {
+      console.warn('[FCM] First attempt failed, deleting stale token and retrying:', err.message);
+      try { await deleteToken(messaging); } catch (_) { /* ignore */ }
+      return getOrCreateFCMToken(retryCount + 1);
+    }
     console.error('[FCM] getToken failed:', err.code || err.message, err);
     return null;
   }
