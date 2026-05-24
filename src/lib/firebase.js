@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getMessaging, getToken } from 'firebase/messaging';
 import { getInstallations, getId, getToken as getFISToken } from 'firebase/installations';
@@ -38,7 +38,17 @@ export async function getOrCreateFCMToken() {
     return null;
   }
   console.log('[FCM] Config check — projectId:', firebaseConfig.projectId, '| appId:', firebaseConfig.appId, '| vapidKey length:', vapidKey.length, '| vapidKey prefix:', vapidKey.slice(0, 12));
-  console.log('[FCM] VAPID RAW:', JSON.stringify(vapidKey));
+
+  // Wait for Firebase Auth to finish its IndexedDB initialization before FIS/FCM
+  // touches the same database. onAuthStateChanged fires after Auth has read its
+  // persisted state, so by the time we resolve here Auth's IDBDatabase is stable.
+  await new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, () => {
+      unsub();
+      resolve();
+    });
+  });
+
   if (!('serviceWorker' in navigator)) {
     console.warn('[FCM] Service workers not supported in this browser');
     return null;

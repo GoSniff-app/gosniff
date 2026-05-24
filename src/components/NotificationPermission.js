@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { onMessage } from 'firebase/messaging';
 import { doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth-context';
@@ -28,12 +28,18 @@ export default function NotificationPermission() {
   const { user, dogs } = useAuth();
   const [visible, setVisible] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  // Track which uid we have already fetched a token for so the effect doesn't
+  // fire multiple times as the Firestore dogs snapshot re-emits.
+  const fcmInitializedForRef = useRef(null);
 
   // Silently refresh token on load when permission already granted
   useEffect(() => {
     if (!user || dogs.length === 0) return;
     if (typeof Notification === 'undefined') return;
     if (Notification.permission !== 'granted') return;
+    // Guard: only run once per signed-in user
+    if (fcmInitializedForRef.current === user.uid) return;
+    fcmInitializedForRef.current = user.uid;
 
     getOrCreateFCMToken().then((token) => {
       if (token) saveTokenToFirestore(user.uid, token).catch(console.error);
