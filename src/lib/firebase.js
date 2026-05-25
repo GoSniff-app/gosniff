@@ -100,8 +100,30 @@ export async function getOrCreateFCMToken(retryCount = 0) {
       }
     }
 
+    // Temporary diagnostic: intercept the fcmregistrations request to log what the SDK sends
+    const _origFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+      if (url?.includes('fcmregistrations')) {
+        const opts = args[1] || {};
+        const hdrs = Object.fromEntries(new Headers(opts.headers).entries());
+        console.log('[FCM-DEBUG] → URL:', url);
+        console.log('[FCM-DEBUG] → Headers:', JSON.stringify(hdrs));
+        console.log('[FCM-DEBUG] → Body:', opts.body);
+        const fisJwt = hdrs['x-goog-firebase-installations-auth']?.replace('FIS ', '');
+        if (fisJwt) {
+          try {
+            const payload = JSON.parse(atob(fisJwt.split('.')[1]));
+            console.log('[FCM-DEBUG] → FIS JWT payload:', JSON.stringify(payload));
+          } catch (_) {}
+        }
+      }
+      return _origFetch.apply(this, args);
+    };
+
     console.log('[FCM] Requesting FCM token…');
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration });
+    window.fetch = _origFetch;
     if (token) {
       console.log('[FCM] Token obtained (first 20 chars):', token.slice(0, 20));
     } else {
