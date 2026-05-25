@@ -67,11 +67,9 @@ export async function getOrCreateFCMToken(retryCount = 0) {
       const installations = getInstallations(app);
       const fid = await getId(installations);
       console.log('[FIS] Installation ID OK:', fid.slice(0, 8) + '…');
-      const fisToken = await getFISToken(installations, false);
+      const fisToken = await getFISToken(installations, true);
       console.log('[FIS] Auth token OK:', fisToken.slice(0, 15) + '…');
     } catch (fisErr) {
-      // InvalidStateError means Auth is still closing its IDB connection.
-      // Retry with exponential backoff (500 ms → 1 s → 2 s).
       if (fisErr instanceof DOMException && fisErr.name === 'InvalidStateError' && retryCount < 3) {
         const delay = 500 * Math.pow(2, retryCount);
         console.warn(`[FIS] IndexedDB race (attempt ${retryCount + 1}), retrying in ${delay} ms…`);
@@ -80,6 +78,26 @@ export async function getOrCreateFCMToken(retryCount = 0) {
       }
       console.error('[FIS] FAILED:', fisErr.code || fisErr.message, fisErr);
       return null;
+    }
+
+    // After a VAPID key rotation, the browser's PushManager still holds a subscription
+    // bound to the OLD applicationServerKey. deleteToken() only clears FCM's IndexedDB
+    // record — it does NOT call pushManager.unsubscribe(). getToken() then reuses the
+    // stale subscription whose key doesn't match the new VAPID key, causing a 401 from
+    // fcmregistrations.googleapis.com. Fix: always clear any existing push subscription
+    // so getToken() creates a fresh one with the current VAPID key.
+    const existingSub = await swRegistration.pushManager.getSubscription();
+    if (existingSub) {
+      const existingKey = existingSub.options?.applicationServerKey;
+      const keyBase64 = existingKey
+        ? btoa(String.fromCharCode(...new Uint8Array(existingKey)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        : null;
+      if (keyBase64 !== vapidKey) {
+        console.warn('[FCM] Stale push subscription (wrong VAPID key), unsubscribing…');
+        await existingSub.unsubscribe();
+        try { await deleteToken(messaging); } catch (_) { /* ignore */ }
+      }
     }
 
     console.log('[FCM] Requesting FCM token…');
@@ -91,11 +109,14 @@ export async function getOrCreateFCMToken(retryCount = 0) {
     }
     return token || null;
   } catch (err) {
-    // On the first attempt, a stale push subscription from an old VAPID key causes a 401.
-    // Delete the cached token so Chrome will create a fresh subscription, then retry once.
     if (retryCount === 0) {
-      console.warn('[FCM] First attempt failed, deleting stale token and retrying:', err.message);
-      try { await deleteToken(messaging); } catch (_) { /* ignore */ }
+      console.warn('[FCM] First attempt failed, clearing stale state and retrying:', err.message);
+      try {
+        const swReg = await navigator.serviceWorker.ready;
+        const sub = await swReg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe();
+        await deleteToken(messaging);
+      } catch (_) { /* ignore cleanup errors */ }
       return getOrCreateFCMToken(retryCount + 1);
     }
     console.error('[FCM] getToken failed:', err.code || err.message, err);
