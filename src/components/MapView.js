@@ -204,7 +204,7 @@ export default function MapView() {
         );
         for (const id of currentIds) {
           if (!prevCheckedInIdsRef.current.has(id) && packDogIds.has(id)) {
-            new Audio('/sounds/checkin-notification.mp3').play().catch(() => {});
+            new Audio('/Sounds/checkin-notification.mp3').play().catch(() => {});
             break;
           }
         }

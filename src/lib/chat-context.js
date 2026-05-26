@@ -87,7 +87,7 @@ export function ChatProvider({ children }) {
                   !myDogIds.includes(convo.lastMessageFrom) &&
                   convo.id !== activeConversationIdRef.current) {
                 console.log('[SOUND-DEBUG] Playing message sound');
-                new Audio('/sounds/message-notification.mp3').play().catch((e) => console.warn('[SOUND-DEBUG] Play failed:', e.message));
+                new Audio('/Sounds/message-notification.mp3').play().catch((e) => console.warn('[SOUND-DEBUG] Play failed:', e.message));
                 break;
               }
             }
