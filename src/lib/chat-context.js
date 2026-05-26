@@ -29,18 +29,30 @@ export function useChat() {
 const MAX_MESSAGE_LENGTH = 1000;
 
 export function ChatProvider({ children }) {
-  const { user } = useAuth();
+  const { user, dogs } = useAuth();
 
   const [conversations, setConversations] = useState([]);
   const [unreadCounts, setUnreadCounts] = useState({});
 
   const convoUnsubRef = useRef(null);
   const humanDocUnsubRef = useRef(null);
+  const dogsRef = useRef(dogs);
+  const activeConversationIdRef = useRef(null);
+  const initialConvoLoadRef = useRef(false);
+  const prevLastMessageTimesRef = useRef({});
+
+  useEffect(() => { dogsRef.current = dogs; }, [dogs]);
+
+  function setActiveConversationId(id) {
+    activeConversationIdRef.current = id;
+  }
 
   useEffect(() => {
     function cleanup() {
       if (convoUnsubRef.current) { convoUnsubRef.current(); convoUnsubRef.current = null; }
       if (humanDocUnsubRef.current) { humanDocUnsubRef.current(); humanDocUnsubRef.current = null; }
+      initialConvoLoadRef.current = false;
+      prevLastMessageTimesRef.current = {};
     }
 
     if (!user || !db) {
@@ -62,6 +74,28 @@ export function ChatProvider({ children }) {
           const bMs = b.lastMessageTime?.toMillis?.() ?? 0;
           return bMs - aMs;
         });
+
+        if (initialConvoLoadRef.current) {
+          const myDogIds = dogsRef.current.map(d => d.id);
+          for (const convo of convos) {
+            const currentMs = convo.lastMessageTime?.toMillis?.() ?? 0;
+            const prevMs = prevLastMessageTimesRef.current[convo.id] ?? 0;
+            if (currentMs > prevMs &&
+                convo.lastMessageFrom &&
+                !myDogIds.includes(convo.lastMessageFrom) &&
+                convo.id !== activeConversationIdRef.current) {
+              new Audio('/sounds/message-notification.mp3').play().catch(() => {});
+              break;
+            }
+          }
+        }
+        initialConvoLoadRef.current = true;
+        const newTimes = {};
+        for (const convo of convos) {
+          newTimes[convo.id] = convo.lastMessageTime?.toMillis?.() ?? 0;
+        }
+        prevLastMessageTimesRef.current = newTimes;
+
         setConversations(convos);
       },
       (err) => console.error('[ChatContext] conversations listener error:', err)
@@ -223,6 +257,7 @@ export function ChatProvider({ children }) {
     subscribeToMessages,
     markConversationRead,
     deleteConversation,
+    setActiveConversationId,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

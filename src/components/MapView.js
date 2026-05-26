@@ -108,7 +108,7 @@ export default function MapView() {
   const { user, dogs, checkIn, checkOut, extendCheckIn, updateCheckIn, signOut, updateDog } = useAuth();
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
-  const { totalUnreadCount } = useChat();
+  const { totalUnreadCount, setActiveConversationId } = useChat();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -143,6 +143,21 @@ export default function MapView() {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [activeChatDog, setActiveChatDog] = useState(null);
   const [mapType, setMapType] = useState('roadmap');
+  const prevCheckedInIdsRef = useRef(null);
+  const myPackRef = useRef(myPack);
+  const myDogIdRef = useRef(myDog?.id);
+
+  useEffect(() => { myPackRef.current = myPack; }, [myPack]);
+  useEffect(() => { myDogIdRef.current = myDog?.id; }, [myDog?.id]);
+
+  useEffect(() => {
+    if (activeChatDog && myDog) {
+      setActiveConversationId([myDog.id, activeChatDog.id].sort().join('_'));
+    } else {
+      setActiveConversationId(null);
+    }
+    return () => setActiveConversationId(null);
+  }, [activeChatDog?.id, myDog?.id]);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -180,6 +195,22 @@ export default function MapView() {
       const dogsOnMap = snapshot.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((d) => d.checkedInLocation);
+
+      const currentIds = new Set(dogsOnMap.map(d => d.id));
+      if (prevCheckedInIdsRef.current !== null) {
+        const packDogIds = new Set(
+          (myPackRef.current || []).flatMap(link => link.dogIds || [])
+            .filter(id => id !== myDogIdRef.current)
+        );
+        for (const id of currentIds) {
+          if (!prevCheckedInIdsRef.current.has(id) && packDogIds.has(id)) {
+            new Audio('/sounds/checkin-notification.mp3').play().catch(() => {});
+            break;
+          }
+        }
+      }
+      prevCheckedInIdsRef.current = currentIds;
+
       setNearbyDogs(dogsOnMap);
     });
     return () => unsub();
