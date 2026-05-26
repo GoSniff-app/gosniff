@@ -20,7 +20,10 @@ export function AlertsProvider({ children }) {
   const [activeAlerts, setActiveAlerts] = useState([]);
 
   useEffect(() => {
-    if (!db) return;
+    if (!user || !db) {
+      setActiveAlerts([]);
+      return;
+    }
     const q = query(collection(db, 'alerts'), where('active', '==', true));
     const unsub = onSnapshot(q, (snapshot) => {
       const now = new Date();
@@ -33,7 +36,7 @@ export function AlertsProvider({ children }) {
       setActiveAlerts(alerts);
     });
     return () => unsub();
-  }, []);
+  }, [user]);
 
   async function reportAlert({ type, customText = null, location, locationName, dogId }) {
     if (!user || !db) return;
