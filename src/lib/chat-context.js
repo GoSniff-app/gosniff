@@ -43,6 +43,25 @@ export function ChatProvider({ children }) {
 
   useEffect(() => { dogsRef.current = dogs; }, [dogs]);
 
+  // iOS blocks audio not triggered by a direct user tap. Play a silent audio
+  // on the first interaction to unlock playback for the rest of the session.
+  useEffect(() => {
+    let unlocked = false;
+    function unlock() {
+      if (unlocked) return;
+      unlocked = true;
+      const a = new Audio('/Sounds/message-notification.mp3');
+      a.volume = 0;
+      a.play().then(() => a.pause()).catch(() => {});
+    }
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('click', unlock, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
+    };
+  }, []);
+
   function setActiveConversationId(id) {
     activeConversationIdRef.current = id;
   }
