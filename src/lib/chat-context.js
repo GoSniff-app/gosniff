@@ -77,17 +77,23 @@ export function ChatProvider({ children }) {
 
         if (initialConvoLoadRef.current) {
           const myDogIds = dogsRef.current.map(d => d.id);
+          console.log('[SOUND-DEBUG] Checking convos for new messages. myDogIds:', myDogIds);
           for (const convo of convos) {
             const currentMs = convo.lastMessageTime?.toMillis?.() ?? 0;
             const prevMs = prevLastMessageTimesRef.current[convo.id] ?? 0;
-            if (currentMs > prevMs &&
-                convo.lastMessageFrom &&
-                !myDogIds.includes(convo.lastMessageFrom) &&
-                convo.id !== activeConversationIdRef.current) {
-              new Audio('/sounds/message-notification.mp3').play().catch(() => {});
-              break;
+            if (currentMs > prevMs) {
+              console.log('[SOUND-DEBUG] New message in', convo.id, '| from:', convo.lastMessageFrom, '| active:', activeConversationIdRef.current, '| isMyDog:', myDogIds.includes(convo.lastMessageFrom));
+              if (convo.lastMessageFrom &&
+                  !myDogIds.includes(convo.lastMessageFrom) &&
+                  convo.id !== activeConversationIdRef.current) {
+                console.log('[SOUND-DEBUG] Playing message sound');
+                new Audio('/sounds/message-notification.mp3').play().catch((e) => console.warn('[SOUND-DEBUG] Play failed:', e.message));
+                break;
+              }
             }
           }
+        } else {
+          console.log('[SOUND-DEBUG] Initial conversation load — skipping sound check');
         }
         initialConvoLoadRef.current = true;
         const newTimes = {};
