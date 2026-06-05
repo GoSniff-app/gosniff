@@ -10,3 +10,5 @@ recovery-codes Vercel.txt
 recovery-codes*.txt
 *token*.png
 .env*.local
+*API Key*.png
+*Verification Code*.png
