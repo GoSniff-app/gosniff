@@ -3,3 +3,10 @@ node_modules/
 .env.local
 gosniff 2/
 GoSniff-backup/
+
+# Secrets and sensitive files - never commit
+Oath token.png
+recovery-codes Vercel.txt
+recovery-codes*.txt
+*token*.png
+.env*.local
