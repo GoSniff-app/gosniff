@@ -32,7 +32,7 @@ function ErrorBox({ children }) {
 function BackToSignIn() {
   return (
     <div className="mt-6 text-center">
-      <Link href="/sign-in" className="font-bold underline" style={{ color: 'var(--gs-green)' }}>
+      <Link href="/" className="font-bold underline" style={{ color: 'var(--gs-green)' }}>
         Back to Sign In
       </Link>
     </div>
@@ -155,7 +155,7 @@ function ResetPasswordInner() {
           </p>
         </div>
         <div className="mt-6">
-          <Link href="/sign-in" className="btn-primary w-full" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+          <Link href="/" className="btn-primary w-full" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
             Back to Sign In
           </Link>
         </div>
