@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { auth } from '@/lib/firebase';
 import PawLogo from '@/components/PawLogo';
 
@@ -42,7 +43,10 @@ function BackToSignIn() {
 function ResetPasswordInner() {
   const searchParams = useSearchParams();
   const oobCode = searchParams.get('oobCode');
+  const code = searchParams.get('code'); // custom (non-Firebase) reset code
 
+  // 'firebase' (oobCode) | 'custom' (Firestore code)
+  const [mode, setMode] = useState(null);
   // 'verifying' | 'ready' | 'invalid' | 'success'
   const [status, setStatus] = useState('verifying');
   const [verifyError, setVerifyError] = useState('');
@@ -55,47 +59,82 @@ function ResetPasswordInner() {
 
   // Verify the reset code once on load — but only if there is one.
   useEffect(() => {
-    // Guard: user navigated here manually with no oobCode in the URL.
-    if (!oobCode) {
-      setStatus('invalid');
-      setVerifyError('This password reset link is missing its code. Please use the link from your reset email, or request a new one.');
-      return;
-    }
-
-    if (!auth) {
-      setStatus('invalid');
-      setVerifyError('Something went wrong on our end. Please try again later.');
-      return;
-    }
-
     let cancelled = false;
 
-    verifyPasswordResetCode(auth, oobCode)
-      .then((verifiedEmail) => {
-        if (cancelled) return;
-        setEmail(verifiedEmail || '');
-        setStatus('ready');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setStatus('invalid');
-        if (err.code === 'auth/expired-action-code') {
-          setVerifyError('This password reset link has expired. Please request a new one from the Sign In page.');
-        } else if (err.code === 'auth/invalid-action-code') {
-          setVerifyError('This password reset link is invalid or has already been used. Please request a new one.');
-        } else if (err.code === 'auth/user-disabled') {
-          setVerifyError('This account has been disabled. Contact ren@godogpro.com for help.');
-        } else if (err.code === 'auth/user-not-found') {
-          setVerifyError('We could not find an account for this reset link.');
-        } else if (err.code === 'auth/network-request-failed') {
-          setVerifyError('Network error. Check your connection and try again.');
-        } else {
-          setVerifyError('We could not verify this reset link. Please request a new one.');
-        }
-      });
+    // ── Firebase oobCode flow (unchanged) ──
+    if (oobCode) {
+      setMode('firebase');
 
+      if (!auth) {
+        setStatus('invalid');
+        setVerifyError('Something went wrong on our end. Please try again later.');
+        return;
+      }
+
+      verifyPasswordResetCode(auth, oobCode)
+        .then((verifiedEmail) => {
+          if (cancelled) return;
+          setEmail(verifiedEmail || '');
+          setStatus('ready');
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setStatus('invalid');
+          if (err.code === 'auth/expired-action-code') {
+            setVerifyError('This password reset link has expired. Please request a new one from the Sign In page.');
+          } else if (err.code === 'auth/invalid-action-code') {
+            setVerifyError('This password reset link is invalid or has already been used. Please request a new one.');
+          } else if (err.code === 'auth/user-disabled') {
+            setVerifyError('This account has been disabled. Contact ren@godogpro.com for help.');
+          } else if (err.code === 'auth/user-not-found') {
+            setVerifyError('We could not find an account for this reset link.');
+          } else if (err.code === 'auth/network-request-failed') {
+            setVerifyError('Network error. Check your connection and try again.');
+          } else {
+            setVerifyError('We could not verify this reset link. Please request a new one.');
+          }
+        });
+
+      return () => { cancelled = true; };
+    }
+
+    // ── Custom Firestore code flow (validated server-side) ──
+    if (code) {
+      setMode('custom');
+
+      httpsCallable(getFunctions(), 'verifyResetCode')({ code })
+        .then((res) => {
+          if (cancelled) return;
+          const out = res.data || {};
+          if (out.error === 'expired') {
+            setStatus('invalid');
+            setVerifyError('Reset link has expired');
+          } else if (out.valid) {
+            setEmail(out.email || '');
+            setStatus('ready');
+          } else {
+            setStatus('invalid');
+            setVerifyError('Invalid or expired reset link');
+          }
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setStatus('invalid');
+          if (err.code === 'functions/unavailable' || err.code === 'unavailable') {
+            setVerifyError('Network error. Check your connection and try again.');
+          } else {
+            setVerifyError('Invalid or expired reset link');
+          }
+        });
+
+      return () => { cancelled = true; };
+    }
+
+    // ── Guard: user navigated here manually with no code at all ──
+    setStatus('invalid');
+    setVerifyError('This password reset link is missing its code. Please use the link from your reset email, or request a new one.');
     return () => { cancelled = true; };
-  }, [oobCode]);
+  }, [oobCode, code]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -103,6 +142,28 @@ function ResetPasswordInner() {
     setFormError('');
     setSubmitting(true);
     try {
+      // ── Custom Firestore code flow: apply via the Admin SDK Cloud Function. ──
+      if (mode === 'custom') {
+        const res = await httpsCallable(getFunctions(), 'confirmPasswordResetWithCode')({ code, newPassword: password });
+        const out = res.data || {};
+        if (out.error) {
+          if (out.error === 'weak-password') {
+            setFormError('That password is too weak. Use at least 6 characters.');
+          } else if (out.error === 'expired') {
+            setFormError('This reset link has expired. Please request a new one from the Sign In page.');
+          } else if (out.error === 'invalid') {
+            setFormError('This reset link is invalid or has already been used. Please request a new one.');
+          } else {
+            setFormError('Something went wrong. Please try again.');
+          }
+          setSubmitting(false);
+          return;
+        }
+        setStatus('success');
+        return;
+      }
+
+      // ── Firebase oobCode flow (unchanged) ──
       await confirmPasswordReset(auth, oobCode, password);
       setStatus('success');
     } catch (err) {
@@ -112,7 +173,7 @@ function ResetPasswordInner() {
         setFormError('This reset link has expired. Please request a new one from the Sign In page.');
       } else if (err.code === 'auth/invalid-action-code') {
         setFormError('This reset link is invalid or has already been used. Please request a new one.');
-      } else if (err.code === 'auth/network-request-failed') {
+      } else if (err.code === 'auth/network-request-failed' || err.code === 'functions/unavailable' || err.code === 'unavailable') {
         setFormError('Network error. Check your connection and try again.');
       } else {
         setFormError('Something went wrong. Please try again.');

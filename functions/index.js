@@ -451,3 +451,246 @@ exports.sendMessageNotification = onDocumentCreated(
     console.log(`Sent message notification from ${senderName} to human ${recipientHumanId}`);
   }
 );
+
+// ─── Test email send (TEMPORARY — for verifying email delivery) ────────────────
+//
+// HTTPS endpoint to confirm the email pipeline works end-to-end.
+//
+// NOTE: The Firebase Admin SDK cannot send email on its own. This project sends
+// mail the same way sendWelcomeEmail does: by writing a document to the `mail`
+// collection, which the "Trigger Email" Firestore extension delivers via SendGrid.
+// This function follows that exact pattern. The `from` address is set to
+// noreply@gosniff.app, but the extension will only honor it if that sender is
+// verified in SendGrid and the extension is configured to allow a custom From;
+// otherwise it falls back to the extension's default sender.
+
+const { onRequest } = require('firebase-functions/v2/https');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+exports.testEmailSend = onRequest(
+  { region: 'us-central1' },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      console.log(`testEmailSend: rejected ${req.method} request`);
+      res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
+      return;
+    }
+
+    // Accept the address from a JSON body { "email": "..." } or a form/query param.
+    const email = (req.body?.email || req.query?.email || '').toString().trim();
+
+    if (!email || !EMAIL_RE.test(email)) {
+      console.log(`testEmailSend: invalid or missing email -> "${email}"`);
+      res.status(400).json({ success: false, error: 'Provide a valid "email" in the POST body.' });
+      return;
+    }
+
+    console.log(`testEmailSend: queuing test email to ${email}`);
+
+    try {
+      const db = getFirestore();
+
+      const mailRef = await db.collection('mail').add({
+        to: [email],
+        from: 'noreply@gosniff.app',
+        message: {
+          subject: 'GoSniff test email 🐾',
+          text: `This is a test email from GoSniff sent to ${email}. If you received this, the email pipeline is working.`,
+          html: `<p>This is a <strong>test email</strong> from GoSniff sent to ${email}.</p><p>If you received this, the email pipeline is working. 🐾</p>`,
+        },
+      });
+
+      console.log(`testEmailSend: SUCCESS — mail document ${mailRef.id} created for ${email}`);
+
+      res.status(200).json({
+        success: true,
+        message: `Test email queued for ${email}.`,
+        mailDocId: mailRef.id,
+        note: 'Delivery is handled asynchronously by the Trigger Email extension (SendGrid). Check the recipient inbox and the mail document\'s "delivery" field for final status.',
+      });
+    } catch (err) {
+      console.error(`testEmailSend: ERROR queuing email to ${email}:`, err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+);
+
+// ─── Custom password reset flow ───────────────────────────────────────────────
+//
+// A self-contained reset flow that does NOT rely on Firebase's oobCode emails.
+// 1) sendPasswordResetEmail: validates the account, mints a Firestore code, emails
+//    a link to /reset-password?code=...  (delivery via the Trigger Email extension)
+// 2) verifyResetCode: server-side validation of a custom code (clients are logged
+//    out during reset, so they can't read the private passwordResetCodes collection)
+// 3) confirmPasswordResetWithCode: applies the new password via the Admin SDK,
+//    then deletes the used code.
+
+const { onCall } = require('firebase-functions/v2/https');
+const { getAuth } = require('firebase-admin/auth');
+const { FieldValue } = require('firebase-admin/firestore');
+const crypto = require('crypto');
+
+const RESET_CODE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const RESET_RESEND_WINDOW_MS = 5 * 60 * 1000;  // throttle re-sends to 1 per 5 min
+const RESET_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+function generateResetCode() {
+  let out = '';
+  for (let i = 0; i < 32; i++) {
+    out += RESET_CODE_CHARS[crypto.randomInt(RESET_CODE_CHARS.length)];
+  }
+  return out;
+}
+
+function buildResetEmailHtml(resetUrl) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1a1a1a;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
+          <tr>
+            <td style="padding-bottom:24px;border-bottom:2px solid #e5e5e5;">
+              <p style="margin:0;font-size:24px;font-weight:700;color:#1a4a3a;">GoSniff 🐾</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 0 0 0;">
+              <p style="margin:0 0 8px 0;font-size:22px;font-weight:700;color:#1a4a3a;">Reset your password</p>
+              <p style="margin:0 0 24px 0;">Click the link below to reset your password. This link expires in 24 hours.</p>
+              <p style="margin:0 0 24px 0;">
+                <a href="${resetUrl}" style="display:inline-block;background:#0097A7;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 28px;border-radius:12px;">Reset Password</a>
+              </p>
+              <p style="margin:0 0 8px 0;font-size:14px;color:#737373;">Or paste this link into your browser:</p>
+              <p style="margin:0 0 24px 0;font-size:14px;word-break:break-all;"><a href="${resetUrl}" style="color:#00869a;">${resetUrl}</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
+              <p style="margin:0;font-size:13px;color:#888888;">If you didn't request this, you can safely ignore this email.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+}
+
+exports.sendPasswordResetEmail = onCall({ region: 'us-central1' }, async (request) => {
+  const email = (request.data?.email || '').toString().trim();
+
+  if (!email || !EMAIL_RE.test(email)) {
+    return { error: 'Email not found' };
+  }
+
+  const db = getFirestore();
+
+  // Verify the account exists in the humans collection. The human doc id is the uid.
+  const humansSnap = await db.collection('humans').where('email', '==', email).limit(1).get();
+  if (humansSnap.empty) {
+    console.log(`sendPasswordResetEmail: no account for ${email}`);
+    return { error: 'Email not found' };
+  }
+  const uid = humansSnap.docs[0].id;
+
+  // Throttle: if a code was created for this email in the last 5 minutes, don't
+  // mint another. Report success so we don't leak timing/account info or spam.
+  const recentSnap = await db.collection('passwordResetCodes').where('email', '==', email).get();
+  const now = Date.now();
+  const hasRecent = recentSnap.docs.some((d) => {
+    const created = d.data().createdAt?.toMillis?.() ?? 0;
+    return created > 0 && now - created < RESET_RESEND_WINDOW_MS;
+  });
+  if (hasRecent) {
+    console.log(`sendPasswordResetEmail: throttled re-send for ${email}`);
+    return { success: true };
+  }
+
+  const code = generateResetCode();
+  const resetUrl = `https://gosniff.app/reset-password?code=${code}`;
+
+  await db.collection('passwordResetCodes').doc(code).set({
+    email,
+    uid,
+    code,
+    createdAt: FieldValue.serverTimestamp(),
+    expiresAt: now + RESET_CODE_TTL_MS, // stored as ms since epoch
+  });
+
+  await db.collection('mail').add({
+    to: [email],
+    from: 'noreply@gosniff.app',
+    message: {
+      subject: 'Reset your GoSniff password',
+      html: buildResetEmailHtml(resetUrl),
+      text: `Reset your GoSniff password. Click the link below (expires in 24 hours):\n\n${resetUrl}\n\nIf you didn't request this, you can safely ignore this email.`,
+    },
+  });
+
+  console.log(`sendPasswordResetEmail: reset code created and email queued for ${email}`);
+  return { success: true };
+});
+
+exports.verifyResetCode = onCall({ region: 'us-central1' }, async (request) => {
+  const code = (request.data?.code || '').toString();
+  if (!code) return { error: 'invalid' };
+
+  const db = getFirestore();
+  const snap = await db.collection('passwordResetCodes').doc(code).get();
+  if (!snap.exists) return { error: 'invalid' };
+
+  const data = snap.data();
+  if (!data.expiresAt || data.expiresAt < Date.now()) {
+    await snap.ref.delete().catch(() => {});
+    return { error: 'expired' };
+  }
+
+  // Return only the (non-sensitive) email so the page can show whose account it is.
+  return { valid: true, email: data.email || '' };
+});
+
+exports.confirmPasswordResetWithCode = onCall({ region: 'us-central1' }, async (request) => {
+  const code = (request.data?.code || '').toString();
+  const newPassword = (request.data?.newPassword || '').toString();
+
+  if (!code) return { error: 'invalid' };
+  if (!newPassword || newPassword.length < 6) return { error: 'weak-password' };
+
+  const db = getFirestore();
+  const ref = db.collection('passwordResetCodes').doc(code);
+  const snap = await ref.get();
+  if (!snap.exists) return { error: 'invalid' };
+
+  const data = snap.data();
+  if (!data.expiresAt || data.expiresAt < Date.now()) {
+    await ref.delete().catch(() => {});
+    return { error: 'expired' };
+  }
+
+  try {
+    // Prefer the uid stored on the code doc; fall back to email lookup.
+    let uid = data.uid;
+    if (!uid) {
+      const userRecord = await getAuth().getUserByEmail(data.email);
+      uid = userRecord.uid;
+    }
+
+    await getAuth().updateUser(uid, { password: newPassword });
+    await ref.delete().catch(() => {});
+
+    console.log(`confirmPasswordResetWithCode: password updated for uid ${uid}`);
+    return { success: true };
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') return { error: 'invalid' };
+    if (err.code === 'auth/weak-password') return { error: 'weak-password' };
+    console.error('confirmPasswordResetWithCode: error applying new password:', err);
+    return { error: 'server' };
+  }
+});
