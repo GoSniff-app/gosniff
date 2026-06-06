@@ -627,9 +627,10 @@ exports.sendPasswordResetEmail = onCall({ region: 'us-central1' }, async (reques
     expiresAt: now + RESET_CODE_TTL_MS, // stored as ms since epoch
   });
 
+  // No `from` set: uses the extension's verified default sender (like
+  // sendWelcomeEmail). Re-add `from: 'noreply@gosniff.app'` once verified in SendGrid.
   await db.collection('mail').add({
     to: [email],
-    from: 'noreply@gosniff.app',
     message: {
       subject: 'Reset your GoSniff password',
       html: buildResetEmailHtml(resetUrl),
