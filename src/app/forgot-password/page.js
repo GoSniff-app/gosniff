@@ -24,14 +24,15 @@ export default function ForgotPasswordPage() {
       const res = await sendReset({ email: email.trim() });
       const out = res.data || {};
       if (out.error) {
-        if (out.error === 'Email not found') {
-          setError("We don't have an account with that email.");
+        if (out.error === 'invalid-email') {
+          setError('Please enter a valid email address.');
         } else {
           setError('Something went wrong. Please try again.');
         }
         setLoading(false);
         return;
       }
+      // Generic success — we intentionally don't reveal whether an account exists.
       setSent(true);
     } catch (err) {
       if (err.code === 'functions/unavailable' || err.code === 'unavailable' || err.message === 'not-configured') {

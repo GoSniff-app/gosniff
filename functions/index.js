@@ -586,17 +586,20 @@ function buildResetEmailHtml(resetUrl) {
 exports.sendPasswordResetEmail = onCall({ region: 'us-central1' }, async (request) => {
   const email = (request.data?.email || '').toString().trim();
 
+  // Malformed input is a client-side problem, not account enumeration.
   if (!email || !EMAIL_RE.test(email)) {
-    return { error: 'Email not found' };
+    return { error: 'invalid-email' };
   }
 
   const db = getFirestore();
 
   // Verify the account exists in the humans collection. The human doc id is the uid.
+  // NOTE: To prevent account enumeration, we return the SAME generic success
+  // whether or not an account exists — we just don't send mail when it doesn't.
   const humansSnap = await db.collection('humans').where('email', '==', email).limit(1).get();
   if (humansSnap.empty) {
-    console.log(`sendPasswordResetEmail: no account for ${email}`);
-    return { error: 'Email not found' };
+    console.log(`sendPasswordResetEmail: no account for ${email} (returning generic success)`);
+    return { success: true };
   }
   const uid = humansSnap.docs[0].id;
 
