@@ -450,24 +450,54 @@ export default function MapView() {
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: false, mapTypeControl: false, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
-            <div
-              className="dog-pin bounce-in"
-              title={dog.name + ' at ' + dog.checkedInAt}
-              style={{
-                border: dog.id === myDog?.id
-                  ? '3px solid var(--gs-warm)'
-                  : frenemyDogIds.includes(dog.id)
-                    ? '3px solid #F97316'
-                    : '3px solid var(--gs-green)',
-                position: 'relative',
-                zIndex: 1,
-              }}
-              onMouseDown={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
-              onTouchStart={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
-            >
-              {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} draggable={false} style={{ pointerEvents: 'none' }} />) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', pointerEvents: 'none' }}>
-                  <PawLogo size={24} />
+            {/* Wrapper keeps the pin anchored while the name label floats below it */}
+            <div style={{ position: 'relative' }}>
+              <div
+                className="dog-pin bounce-in"
+                title={dog.name + ' at ' + dog.checkedInAt}
+                style={{
+                  border: dog.id === myDog?.id
+                    ? '3px solid var(--gs-warm)'
+                    : frenemyDogIds.includes(dog.id)
+                      ? '3px solid #F97316'
+                      : '3px solid var(--gs-green)',
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+                onMouseDown={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
+                onTouchStart={(e) => { e.stopPropagation(); setSelectedDog(dog); }}
+              >
+                {dog.photoURL ? (<img src={dog.photoURL} alt={dog.name} draggable={false} style={{ pointerEvents: 'none' }} />) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', pointerEvents: 'none' }}>
+                    <PawLogo size={24} />
+                  </div>
+                )}
+              </div>
+              {dog.name && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: '50%',
+                    transform: 'translate(-50%, 4px)',
+                    background: 'rgba(255,255,255,0.95)',
+                    color: 'var(--gs-forest)',
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    padding: '2px 7px',
+                    borderRadius: '8px',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '96px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+                    pointerEvents: 'none',
+                    zIndex: 2,
+                  }}
+                >
+                  {dog.name}
                 </div>
               )}
             </div>
