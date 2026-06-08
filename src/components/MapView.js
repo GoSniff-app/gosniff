@@ -474,31 +474,35 @@ export default function MapView() {
                 )}
               </div>
               {dog.name && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: '50%',
-                    transform: 'translate(-50%, 4px)',
-                    background: 'rgba(255,255,255,0.95)',
-                    color: 'var(--gs-forest)',
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    lineHeight: 1.2,
-                    padding: '2px 7px',
-                    borderRadius: '8px',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '96px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
-                    pointerEvents: 'none',
-                    zIndex: 2,
-                  }}
+                // Name curved along the bottom outside edge of the circle.
+                // SVG is centered on the 56px pin (center at 28,28) and sized
+                // generously so the arced text isn't clipped. White stroke +
+                // paint-order gives the letters a halo so they read over the map.
+                <svg
+                  width="100"
+                  height="100"
+                  viewBox="0 0 100 100"
+                  style={{ position: 'absolute', top: '-22px', left: '-22px', overflow: 'visible', pointerEvents: 'none', zIndex: 2 }}
                 >
-                  {dog.name}
-                </div>
+                  <defs>
+                    <path id={`namecurve-${dog.id}`} d="M15,50 A35,35 0 0 0 85,50" fill="none" />
+                  </defs>
+                  <text
+                    textAnchor="middle"
+                    style={{
+                      fontFamily: "'Fredoka', sans-serif",
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      fill: 'var(--gs-forest)',
+                      stroke: '#fff',
+                      strokeWidth: 3,
+                      paintOrder: 'stroke',
+                      strokeLinejoin: 'round',
+                    }}
+                  >
+                    <textPath href={`#namecurve-${dog.id}`} startOffset="50%">{dog.name}</textPath>
+                  </text>
+                </svg>
               )}
             </div>
           </OverlayViewF>
