@@ -382,8 +382,8 @@ export default function MapView() {
   async function handleInvite() {
     const name = myDog?.name || 'My dog';
     const inviteUrl = myDog?.id
-      ? `https://gosniff.vercel.app?addpack=${myDog.id}`
-      : 'https://gosniff.vercel.app';
+      ? `https://gosniff.app?addpack=${myDog.id}`
+      : 'https://gosniff.app';
     const shareData = {
       title: 'GoSniff - It\'s a Dog Meet Dog World',
       text: `${name} is inviting you to join them on GoSniff! See which dogs are at the park right now and come hang out. 🐾\n\niPhone users: open this link in Safari 🧭`,
