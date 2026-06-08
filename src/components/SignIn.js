@@ -80,7 +80,7 @@ export default function SignIn({ onSwitchToJoin }) {
           </div>
           <div className="mb-4 text-right">
             <Link
-              href="/forgot-password"
+              href={`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ''}`}
               className="text-xs font-semibold"
               style={{ color: 'var(--gs-green)', textDecoration: 'none' }}
             >

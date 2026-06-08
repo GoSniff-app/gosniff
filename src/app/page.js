@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { PackProvider, usePack } from '@/lib/pack-context';
 import { AlertsProvider } from '@/lib/alerts-context';
@@ -120,12 +119,6 @@ function AppContent() {
           >
             I Already Have an Account
           </button>
-          <Link
-            href="/forgot-password"
-            style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', textDecoration: 'underline', marginTop: '2px' }}
-          >
-            Forgot Password?
-          </Link>
         </div>
         <p style={{ marginTop: '48px', fontSize: '22px', fontWeight: 700, color: 'var(--gs-forest)', textAlign: 'center' }}>Your dog is the star. You're just holding the phone.</p>
         <p style={{ marginTop: '2px', fontSize: '17px', fontStyle: 'italic', color: 'var(--gs-text-light)', textAlign: 'center' }}>Your human identity is never revealed.</p>
