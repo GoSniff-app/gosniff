@@ -129,106 +129,74 @@ const WELCOME_HTML = `
           <!-- Intro -->
           <tr>
             <td style="padding:28px 0 0 0;">
-              <p style="margin:0 0 8px 0;font-size:22px;font-weight:700;color:#1a4a3a;">You're in!</p>
-              <p style="margin:0 0 16px 0;">Welcome to GoSniff, the real-time social network for dogs (and the humans attached to them).</p>
-              <p style="margin:0 0 24px 0;">GoSniff lets you see which dogs are at the park right now, check in when you're out and about, message your dog's friends, and get alerts about stuff like coyote sightings or lost dogs nearby. Waze + Tinder, canine version.</p>
-              <p style="margin:0 0 8px 0;font-weight:700;">A few things to know before you head out:</p>
+              <p style="margin:0 0 8px 0;font-size:22px;font-weight:700;color:#1a4a3a;">Welcome to GoSniff: Quick Set Up Guide</p>
+              <p style="margin:0;">You're in! We're so glad you and your pup joined the pack.</p>
             </td>
           </tr>
 
-          <!-- Section 1 -->
+          <!-- What is GoSniff? -->
           <tr>
             <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
-              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">IT LOOKS LIKE AN APP, BUT IT'S A WEBSITE (THAT'S ON PURPOSE)</p>
-              <p style="margin:0 0 12px 0;">GoSniff is a web app, which means there's nothing to download from the App Store or Google Play. You just open it in your phone's browser and use it.</p>
-              <p style="margin:0 0 12px 0;">Here's the good part: you can add it to your phone's home screen so it looks and feels exactly like a regular app.</p>
+              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">What is GoSniff?</p>
+              <p style="margin:0;">GoSniff is a real-time social map (Waze plus Grindr, but for dogs) where you see which dogs are at the park right now, check in when you're out, message your dog friends, and get alerts about lost dogs, coyotes, or other stuff worth knowing about. It's the easiest way to make dog playdates happen and find walking buddies when you want them.</p>
+            </td>
+          </tr>
 
-              <p style="margin:0 0 8px 0;font-weight:700;">To add GoSniff to your iPhone home screen:</p>
+          <!-- Web app, not downloaded -->
+          <tr>
+            <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
+              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">GoSniff is a web app, not a downloaded app</p>
+              <p style="margin:0 0 12px 0;">GoSniff isn't in the App Store (yet). You access it through your phone's browser, but you can add it to your home screen so it looks and feels exactly like a regular app.</p>
+
+              <p style="margin:0 0 8px 0;font-weight:700;">iPhone:</p>
               <ol style="margin:0 0 16px 0;padding-left:20px;">
-                <li style="margin-bottom:6px;">Open Safari (it has to be Safari, not Chrome or another browser).</li>
-                <li style="margin-bottom:6px;">Go to <a href="https://gosniff.vercel.app" style="color:#00869a;text-decoration:none;">https://gosniff.vercel.app</a> and log in.</li>
-                <li style="margin-bottom:6px;">Tap the Share button at the bottom of the screen (the little square with an arrow pointing up).</li>
-                <li style="margin-bottom:6px;">Scroll down and tap "Add to Home Screen."</li>
-                <li style="margin-bottom:6px;">Tap "Add" in the top right corner.</li>
-                <li style="margin-bottom:6px;">That's it! You'll see the GoSniff icon on your home screen just like any other app.</li>
+                <li style="margin-bottom:6px;">Open Safari (must be Safari, not Chrome or another browser).</li>
+                <li style="margin-bottom:6px;">Go to <a href="https://gosniff.app" style="color:#00869a;text-decoration:none;">gosniff.app</a> (delete the old gosniff.vercel.app from your home screen if you have it).</li>
+                <li style="margin-bottom:6px;">Tap the Share button at the bottom.</li>
+                <li style="margin-bottom:6px;">Tap "Add to Home Screen."</li>
+                <li style="margin-bottom:6px;">Make sure "Open as Web App" is checked.</li>
+                <li style="margin-bottom:6px;">Tap "Add."</li>
               </ol>
 
-              <p style="margin:0 0 8px 0;font-weight:700;">To add GoSniff to your Android home screen:</p>
+              <p style="margin:0 0 8px 0;font-weight:700;">Android:</p>
               <ol style="margin:0 0 8px 0;padding-left:20px;">
                 <li style="margin-bottom:6px;">Open Chrome.</li>
-                <li style="margin-bottom:6px;">Go to <a href="https://gosniff.vercel.app" style="color:#00869a;text-decoration:none;">https://gosniff.vercel.app</a> and log in.</li>
-                <li style="margin-bottom:6px;">Tap the three dots in the top right corner.</li>
-                <li style="margin-bottom:6px;">Tap "Add to Home Screen" (or "Install App" if you see that option).</li>
+                <li style="margin-bottom:6px;">Go to <a href="https://gosniff.app" style="color:#00869a;text-decoration:none;">gosniff.app</a> (delete the old gosniff.vercel.app from your home screen if you have it).</li>
+                <li style="margin-bottom:6px;">Tap the three dots (menu) in the top right.</li>
+                <li style="margin-bottom:6px;">Tap "Add to Home Screen."</li>
                 <li style="margin-bottom:6px;">Tap "Add."</li>
-                <li style="margin-bottom:6px;">Done! GoSniff now lives on your home screen.</li>
               </ol>
             </td>
           </tr>
 
-          <!-- Section 2 -->
+          <!-- Two permissions -->
           <tr>
             <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
-              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">YOU NEED TO TURN ON LOCATION (THIS IS THE IMPORTANT PART)</p>
-              <p style="margin:0 0 12px 0;">GoSniff is a map. It needs to know where you are to work. When you first open GoSniff, your browser will ask "Allow GoSniff to access your location?" Tap "Allow" or "While Using."</p>
-              <p style="margin:0 0 12px 0;">If you accidentally tapped "Don't Allow" or "Block" (or if nothing happens when you try to check in), you'll need to fix it in your phone's settings:</p>
+              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">You need to allow two permissions</p>
 
-              <p style="margin:0 0 8px 0;font-weight:700;">On iPhone:</p>
-              <ol style="margin:0 0 16px 0;padding-left:20px;">
-                <li style="margin-bottom:6px;">Open Settings.</li>
-                <li style="margin-bottom:6px;">Scroll down to Safari (or whatever browser you're using).</li>
-                <li style="margin-bottom:6px;">Tap Location.</li>
-                <li style="margin-bottom:6px;">Make sure it's set to "Ask" or "Allow."</li>
-                <li style="margin-bottom:6px;">Go back to GoSniff and reload the page.</li>
-              </ol>
+              <p style="margin:0 0 6px 0;font-weight:700;">Location:</p>
+              <p style="margin:0 0 16px 0;">GoSniff is a map, so it needs to know where you are so you can check in at parks and see which dogs are nearby. When GoSniff asks "Allow location access?"—tap Allow. You control your check-in visibility each time you check in (you can set it to public or friends-only).</p>
 
-              <p style="margin:0 0 8px 0;font-weight:700;">On Android:</p>
-              <ol style="margin:0 0 16px 0;padding-left:20px;">
-                <li style="margin-bottom:6px;">Open Settings.</li>
-                <li style="margin-bottom:6px;">Tap Apps, then find Chrome (or your browser).</li>
-                <li style="margin-bottom:6px;">Tap Permissions, then Location.</li>
-                <li style="margin-bottom:6px;">Select "Allow only while using the app."</li>
-                <li style="margin-bottom:6px;">Go back to GoSniff and reload the page.</li>
-              </ol>
-
-              <p style="margin:0 0 8px 0;">If location still isn't working, try closing and reopening your browser, or restarting your phone. (The classic "turn it off and turn it back on" really does work most of the time.)</p>
+              <p style="margin:0 0 6px 0;font-weight:700;">Notifications:</p>
+              <p style="margin:0;">Notifications let your dog friends tell you when they're at the park. Without notifications, you have to remember to open the app to find out. With them, you get a ping when your pack checks in. Tap Allow when GoSniff asks.</p>
             </td>
           </tr>
 
-          <!-- Section 3 -->
+          <!-- Privacy -->
           <tr>
             <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
-              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">MEET NEW DOGS</p>
-              <p style="margin:0 0 12px 0;">When you check in, you can choose to be visible to everyone on GoSniff or just your pack (your friends list). If you're looking to meet new dogs, check in as visible to everyone. Other GoSniff users at or near your park can see your dog's profile, say hi, and send a pack request. Once you and another dog are in each other's packs, you can message each other and get notified when they check in. That's how the friend list grows. Your pack starts small, but every check-in is a chance to meet someone new.</p>
-              <p style="margin:0 0 8px 0;">And don't worry, you're always in control. If someone's giving you weird vibes, you can remove them from your pack at any time. You can also flag a dog as a "frenemy." Maybe their dog doesn't get along with yours, or maybe the human is just a lot. Either way, flagging a frenemy means you'll get a heads-up alert whenever that dog checks in near you so you can steer clear. No drama, just information.</p>
+              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">Privacy—your human identity is never revealed</p>
+              <p style="margin:0 0 12px 0;">Your human account is completely private. Other people see your dog's name, photo, breed, and energy level but they never see your email, phone number, or your name. Only the dogs you explicitly invite to your pack can message your dog.</p>
+              <p style="margin:0;">Your check-in location is only visible to the dogs you choose. Every time you check in, you pick: visible to other dogs nearby, or visible only to your pack. You can update your location if you're on the move, delete your check-in anytime, and after 60 minutes you're automatically off the map.</p>
             </td>
           </tr>
 
-          <!-- Section 4 -->
+          <!-- Beta -->
           <tr>
             <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
-              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">ABOUT YOUR PRIVACY</p>
-              <p style="margin:0 0 12px 0;">GoSniff never tracks you in the background. Your location only appears on the map when you manually tap "We're here!" to check in. When you're not checked in, you're invisible. Nobody can see you, period. You're also automatically checked out after 60 minutes of inactivity, so even if you forget, you won't be left on the map.</p>
-              <p style="margin:0 0 12px 0;">You also have the option to make your check-ins visible to everyone on the app or only to dogs in your pack (your friends list). That's your call, every single time you check in.</p>
-              <p style="margin:0 0 8px 0;">The only identity anyone sees on GoSniff is your dog. Your name, email, and personal info are never visible to other users.</p>
-            </td>
-          </tr>
-
-          <!-- Section 5 -->
-          <tr>
-            <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
-              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">YOU'RE PART OF THE BETA</p>
-              <p style="margin:0 0 12px 0;">GoSniff is currently in beta, which is a fancy way of saying we're still building it and you're one of the first people to try it. Things might be a little rough around the edges. You might find bugs. A feature might not work the way you expect. That's totally normal and actually really helpful for us to know about.</p>
-              <p style="margin:0 0 8px 0;">If something breaks, seems weird, or if you have an idea for something you wish it could do, please tell us! Take a screenshot or write a quick note and email Ren at <a href="mailto:ren@godogpro.com" style="color:#00869a;text-decoration:none;">ren@godogpro.com</a>. No bug is too small, no idea is too weird.</p>
-            </td>
-          </tr>
-
-          <!-- Section 6 / CTA -->
-          <tr>
-            <td style="padding:24px 0 0 0;border-top:1px solid #e5e5e5;">
-              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">GO SNIFF SOMETHING</p>
-              <p style="margin:0 0 24px 0;">Open GoSniff, check in at your favorite park, and see who's out there. Your dog's new best friend might already be waiting.</p>
-              <p style="margin:0 0 6px 0;font-weight:700;">Welcome to the pack!</p>
-              <p style="margin:0;">The GoSniff Team</p>
+              <p style="margin:0 0 12px 0;font-size:17px;font-weight:700;color:#1a4a3a;">You're in beta</p>
+              <p style="margin:0 0 16px 0;">We're still building GoSniff. Things might be glitchy. If something breaks or feels weird, let me know at <a href="mailto:ren@godogpro.com" style="color:#00869a;text-decoration:none;">ren@godogpro.com</a>.</p>
+              <p style="margin:0;font-weight:700;">Welcome to the pack!</p>
             </td>
           </tr>
 
@@ -262,7 +230,7 @@ exports.sendWelcomeEmail = functionsV1.auth.user().onCreate(async (user) => {
   await db.collection('mail').add({
     to: [email],
     message: {
-      subject: 'Welcome to GoSniff! Read this before your first check-in',
+      subject: 'Welcome to GoSniff: Quick Set Up Guide',
       html: WELCOME_HTML,
     },
   });
