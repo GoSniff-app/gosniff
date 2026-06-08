@@ -497,7 +497,7 @@ export default function MapView() {
                     transform: 'translate(-50%, -45%)',
                     background: '#fff',
                     color: 'var(--gs-forest)',
-                    fontFamily: "'Fredoka', sans-serif",
+                    fontFamily: "'Nunito', system-ui, sans-serif",
                     fontSize: '11px',
                     fontWeight: 700,
                     lineHeight: 1.2,
