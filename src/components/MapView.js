@@ -143,6 +143,7 @@ export default function MapView() {
   const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
   const [activeChatDog, setActiveChatDog] = useState(null);
   const [mapType, setMapType] = useState('roadmap');
+  const [zoom, setZoom] = useState(14);
   const prevCheckedInIdsRef = useRef(null);
   const myPackRef = useRef(myPack);
   const myDogIdRef = useRef(myDog?.id);
@@ -258,6 +259,13 @@ export default function MapView() {
   const onMapLoad = useCallback((mapInstance) => {
     setMap(mapInstance);
     mapRef.current = mapInstance;
+  }, []);
+
+  // Keep dog markers a sensible size: full size when zoomed in, smaller as the
+  // map zooms out (otherwise a fixed-pixel pin covers a huge area at city/region zoom).
+  const onZoomChanged = useCallback(() => {
+    const z = mapRef.current?.getZoom();
+    if (typeof z === 'number') setZoom(z);
   }, []);
 
   async function handleRefreshLocation() {
@@ -444,14 +452,18 @@ export default function MapView() {
     return true;
   });
 
+  // Scale pins down as the map zooms out (full size at zoom 14+, min 0.4).
+  const pinScale = Math.max(0.4, Math.min(1, 1 - (14 - zoom) * 0.15));
+  const showPinNames = zoom >= 13;
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
-      <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad}
+      <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={14} onLoad={onMapLoad} onZoomChanged={onZoomChanged}
         options={{ styles: mapStyles, disableDefaultUI: true, zoomControl: false, mapTypeControl: false, clickableIcons: false }}>
         {visibleDogs.map((dog) => (
           <OverlayViewF key={dog.id} position={dog.checkedInLocation} mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}>
-            {/* Wrapper keeps the pin anchored while the name label floats below it */}
-            <div style={{ position: 'relative' }}>
+            {/* Wrapper keeps the pin anchored (top-left) while it scales with zoom */}
+            <div style={{ position: 'relative', transform: `scale(${pinScale})`, transformOrigin: '0 0' }}>
               <div
                 className="dog-pin bounce-in"
                 title={dog.name + ' at ' + dog.checkedInAt}
@@ -473,7 +485,7 @@ export default function MapView() {
                   </div>
                 )}
               </div>
-              {dog.name && (
+              {dog.name && showPinNames && (
                 // Name pill straddling the bottom rim of the circle: centered
                 // horizontally, nudged up so it overlaps the lower edge slightly
                 // (integrated, not floating below) without covering the photo.
