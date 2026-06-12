@@ -54,6 +54,14 @@ export default function MyPackList({ onClose, onOpenChat }) {
   const [copiedInvite, setCopiedInvite] = useState(false);
 
   useEffect(() => {
+    // Guard against out-of-order resolves: when accepting a request, the
+    // pendingReceived and myPack listeners fire in quick succession, kicking off
+    // two overlapping fetch batches. Without this flag a stale batch (started
+    // before the new link existed) could resolve last and overwrite the good
+    // result, dropping the just-accepted dog until a remount. Only the latest
+    // run — which always reflects the current myPack — is allowed to write.
+    let active = true;
+
     const idsToFetch = new Set();
     myPack.forEach((link) => {
       link.dogIds?.forEach((id) => { if (id !== myDog?.id) idsToFetch.add(id); });
@@ -64,11 +72,14 @@ export default function MyPackList({ onClose, onOpenChat }) {
     if (idsToFetch.size === 0) { setDogProfiles({}); return; }
 
     Promise.all([...idsToFetch].map((id) => getDoc(doc(db, 'dogs', id)))).then((snaps) => {
+      if (!active) return; // superseded by a newer run — don't overwrite with stale data
       const profiles = {};
       // null = fetched but dog no longer exists (deleted account); undefined = not yet fetched
       snaps.forEach((snap) => { profiles[snap.id] = snap.exists() ? { id: snap.id, ...snap.data() } : null; });
       setDogProfiles(profiles);
     });
+
+    return () => { active = false; };
   }, [myPack, pendingReceived, pendingSent, myDog?.id]);
 
   // Debounced dog name search with fuzzy word-prefix matching.
