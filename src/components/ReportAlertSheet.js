@@ -29,7 +29,6 @@ export default function ReportAlertSheet({ myDog, gpsCoords, locationName, onClo
         customText: selectedType === 'custom' ? customText.trim() : null,
         location: gpsCoords,
         locationName: locationName || 'Unknown location',
-        dogId: myDog.id,
       });
       setDone(true);
       setTimeout(onClose, 1400);

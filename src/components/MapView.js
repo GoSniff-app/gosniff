@@ -107,7 +107,7 @@ async function reverseGeocode(lat, lng) {
 export default function MapView() {
   const { user, dogs, checkIn, checkOut, extendCheckIn, updateCheckIn, signOut, updateDog } = useAuth();
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
-  const { activeAlerts, voteOnAlert, reportAlert } = useAlerts();
+  const { activeAlerts, voteOnAlert, reportAlert, myVotes } = useAlerts();
   const { totalUnreadCount, setActiveConversationId } = useChat();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
@@ -747,8 +747,8 @@ export default function MapView() {
         if (!gpsCoords) return null;
         const nearbyAlert = activeAlerts.find((a) => {
           if (dismissedAlertIds.includes(a.id)) return false;
-          if (user && a.confirmedByHumanIds?.includes(user.uid)) return false;
-          if (user && a.deniedByHumanIds?.includes(user.uid)) return false;
+          if (user && myVotes[a.id] === 'confirm') return false;
+          if (user && myVotes[a.id] === 'deny') return false;
           return distanceMiles(gpsCoords, a.location) <= 0.5;
         });
         if (!nearbyAlert) return null;
@@ -1429,8 +1429,8 @@ export default function MapView() {
             </div>
 
             {user && (() => {
-              const confirmed = selectedAlert.confirmedByHumanIds?.includes(user.uid);
-              const denied = selectedAlert.deniedByHumanIds?.includes(user.uid);
+              const confirmed = myVotes[selectedAlert.id] === 'confirm';
+              const denied = myVotes[selectedAlert.id] === 'deny';
               if (confirmed) return <p style={{ textAlign: 'center', color: 'var(--gs-green)', fontWeight: 600, fontSize: '0.875rem', padding: '8px 0' }}>✓ You confirmed this alert</p>;
               if (denied) return <p style={{ textAlign: 'center', color: 'var(--gs-text-light)', fontWeight: 600, fontSize: '0.875rem', padding: '8px 0' }}>You marked this as resolved</p>;
               return (
