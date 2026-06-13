@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { db } from './firebase';
 import { useAuth } from './auth-context';
 import {
@@ -17,16 +17,24 @@ export function useAlerts() {
 
 export function AlertsProvider({ children }) {
   const { user } = useAuth();
+  const userId = user?.uid ?? null;
   const [activeAlerts, setActiveAlerts] = useState([]);
   const [myVotes, setMyVotes] = useState({});
-  // Latest-wins guard: each snapshot bumps this; an async vote-fetch only writes
-  // if it's still the newest one (also invalidated on cleanup/unmount).
-  const voteFetchIdRef = useRef(0);
 
+  // Reset per-user vote state the instant the signed-in user changes — sign-out,
+  // or one account swapped for another on the same device without a reload. Done
+  // during render (the standard "adjust state when input changes" pattern) so a
+  // new user never sees the previous user's vote receipts, even for one frame.
+  const [trackedUserId, setTrackedUserId] = useState(userId);
+  if (userId !== trackedUserId) {
+    setTrackedUserId(userId);
+    setMyVotes({});
+  }
+
+  // Subscribe to active alerts (public data — independent of who is signed in).
   useEffect(() => {
     if (!user || !db) {
       setActiveAlerts([]);
-      setMyVotes({});
       return;
     }
     const q = query(collection(db, 'alerts'), where('active', '==', true));
@@ -39,32 +47,45 @@ export function AlertsProvider({ children }) {
           return expires && expires > now;
         });
       setActiveAlerts(alerts);
-
-      // Load this user's per-alert vote state from the private votes subcollection.
-      // Reading a non-existent vote doc at the user's own uid returns
-      // exists() === false (not an error) under the security rules.
-      const fetchId = ++voteFetchIdRef.current;
-      (async () => {
-        const entries = await Promise.all(
-          alerts.map(async (a) => {
-            try {
-              const vSnap = await getDoc(doc(db, 'alerts', a.id, 'votes', user.uid));
-              return vSnap.exists() ? [a.id, vSnap.data().vote] : null;
-            } catch (err) {
-              console.error('[AlertsContext] vote lookup failed for', a.id, err);
-              return null;
-            }
-          })
-        );
-        // Superseded by a newer snapshot (or cleanup) — don't overwrite with stale data.
-        if (fetchId !== voteFetchIdRef.current) return;
-        const votes = {};
-        entries.forEach((e) => { if (e) votes[e[0]] = e[1]; });
-        setMyVotes(votes);
-      })();
     });
-    return () => { unsub(); voteFetchIdRef.current++; };
+    return () => unsub();
   }, [user]);
+
+  // Keep myVotes in sync with the CURRENT user's private vote docs. Re-runs when
+  // the user changes (refetch for the new user — not only when an alerts snapshot
+  // fires) or when the active alert set changes. The `cancelled` flag is the
+  // latest-wins guard, and because this effect is keyed on `user` it also covers
+  // user identity: a user change re-runs the effect and cancels any fetch still
+  // in flight for the previous user, so that fetch can never populate state under
+  // the new user.
+  useEffect(() => {
+    if (!user || !db) {
+      setMyVotes({});
+      return;
+    }
+    let cancelled = false;
+    const uid = user.uid;
+    (async () => {
+      const entries = await Promise.all(
+        activeAlerts.map(async (a) => {
+          try {
+            // A non-existent vote doc at the user's own uid returns
+            // exists() === false (not an error) under the security rules.
+            const vSnap = await getDoc(doc(db, 'alerts', a.id, 'votes', uid));
+            return vSnap.exists() ? [a.id, vSnap.data().vote] : null;
+          } catch (err) {
+            console.error('[AlertsContext] vote lookup failed for', a.id, err);
+            return null;
+          }
+        })
+      );
+      if (cancelled) return; // superseded by a newer run (alerts change or user change)
+      const votes = {};
+      entries.forEach((e) => { if (e) votes[e[0]] = e[1]; });
+      setMyVotes(votes);
+    })();
+    return () => { cancelled = true; };
+  }, [user, activeAlerts]);
 
   async function reportAlert({ type, customText = null, location, locationName }) {
     if (!user || !db) return;
