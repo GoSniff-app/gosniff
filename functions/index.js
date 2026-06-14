@@ -666,3 +666,47 @@ exports.confirmPasswordResetWithCode = onCall({ region: 'us-central1' }, async (
     return { error: 'server' };
   }
 });
+
+// ─── Server-side friends-only visibility filter (A1 privacy fix) ──────────────
+//
+// Moves the friends-only check-in decision from the client to the server, so a
+// 'friends' dog's location is never sent to people who aren't its friends. The
+// map calls this instead of reading every checked-in dog document directly.
+
+const { HttpsError } = require('firebase-functions/v2/https');
+
+exports.getVisibleDogs = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Must be signed in.');
+  }
+
+  const db = getFirestore();
+
+  // Build the caller's friend set: every dog ID across their pack links.
+  // (This also includes the caller's own dogs, which is harmless here.)
+  const linksSnap = await db
+    .collection('packLinks')
+    .where('humanIds', 'array-contains', uid)
+    .get();
+  const friendDogIds = new Set();
+  linksSnap.docs.forEach((d) => (d.data().dogIds || []).forEach((id) => friendDogIds.add(id)));
+
+  // Every currently checked-in dog.
+  const checkedInSnap = await db.collection('dogs').where('checkedIn', '==', true).get();
+
+  const dogs = [];
+  checkedInSnap.docs.forEach((d) => {
+    const data = d.data();
+    // No location → nothing to place on the map.
+    if (!data.checkedInLocation) return;
+    // 'friends' is the only private value; 'everyone', missing, or anything
+    // else counts as public and is always included.
+    if (data.visibilityOnCheckIn === 'friends' && !friendDogIds.has(d.id)) return;
+    dogs.push({ id: d.id, ...data });
+  });
+
+  console.log(`getVisibleDogs: ${dogs.length}/${checkedInSnap.size} dogs visible to ${uid}`);
+
+  return { dogs };
+});

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, OverlayViewF, OverlayView } from '@react-google-maps/api';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions'; // A1 cutover: other dogs come from getVisibleDogs callable
 import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
 import { useAlerts } from '@/lib/alerts-context';
@@ -189,32 +188,50 @@ export default function MapView() {
     );
   }, []);
 
+  // A1 privacy cutover: the OTHER dogs on the map come from the server-side
+  // getVisibleDogs callable (friends-vs-everyone filtering already applied on the
+  // server), NOT a direct Firestore read. A callable is a one-shot request, so we
+  // poll every 20s instead of a realtime listener. The current user's OWN dog is
+  // deliberately NOT sourced here — it renders in realtime from auth-context
+  // (see `myDog` / `visibleDogs` below) so the user always sees themselves at once.
   useEffect(() => {
-    if (!db) return;
-    const q = query(collection(db, 'dogs'), where('checkedIn', '==', true));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const dogsOnMap = snapshot.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((d) => d.checkedInLocation);
+    let cancelled = false;
 
-      const currentIds = new Set(dogsOnMap.map(d => d.id));
-      if (prevCheckedInIdsRef.current !== null) {
-        const packDogIds = new Set(
-          (myPackRef.current || []).flatMap(link => link.dogIds || [])
-            .filter(id => id !== myDogIdRef.current)
-        );
-        for (const id of currentIds) {
-          if (!prevCheckedInIdsRef.current.has(id) && packDogIds.has(id)) {
-            new Audio('/Sounds/checkin-notification.mp3').play().catch(() => {});
-            break;
+    async function loadVisibleDogs() {
+      try {
+        const result = await httpsCallable(getFunctions(), 'getVisibleDogs')();
+        if (cancelled) return;
+        const dogsOnMap = (result?.data?.dogs || [])
+          .filter((d) => d.checkedInLocation)
+          .filter((d) => d.id !== myDogIdRef.current); // own dog handled in realtime via auth-context
+
+        const currentIds = new Set(dogsOnMap.map((d) => d.id));
+        if (prevCheckedInIdsRef.current !== null) {
+          const packDogIds = new Set(
+            (myPackRef.current || []).flatMap((link) => link.dogIds || [])
+              .filter((id) => id !== myDogIdRef.current)
+          );
+          for (const id of currentIds) {
+            if (!prevCheckedInIdsRef.current.has(id) && packDogIds.has(id)) {
+              new Audio('/Sounds/checkin-notification.mp3').play().catch(() => {});
+              break;
+            }
           }
         }
-      }
-      prevCheckedInIdsRef.current = currentIds;
+        prevCheckedInIdsRef.current = currentIds;
 
-      setNearbyDogs(dogsOnMap);
-    });
-    return () => unsub();
+        setNearbyDogs(dogsOnMap);
+      } catch (err) {
+        console.error('getVisibleDogs poll failed:', err);
+      }
+    }
+
+    loadVisibleDogs();
+    const intervalId = setInterval(loadVisibleDogs, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -446,11 +463,14 @@ export default function MapView() {
     );
   }
 
-  const visibleDogs = nearbyDogs.filter((dog) => {
-    if (dog.id === myDog?.id) return true;
-    if (dog.visibilityOnCheckIn === 'friends') return myPack.some((link) => link.dogIds?.includes(dog.id));
-    return true;
-  });
+  // OTHER dogs already arrive filtered by the server (getVisibleDogs), so we do
+  // NOT re-apply the old friends-vs-everyone client filter here — re-filtering
+  // could wrongly hide a friends-only dog the server legitimately returned. The
+  // current user's own dog is injected from realtime auth-context state so it
+  // appears immediately on check-in (never waits for the 20s poll).
+  const otherDogs = nearbyDogs.filter((dog) => dog.id !== myDog?.id);
+  const ownDogOnMap = myDog?.checkedIn && myDog?.checkedInLocation ? [myDog] : [];
+  const visibleDogs = [...ownDogOnMap, ...otherDogs];
 
   // Scale pins down as the map zooms out (full size at zoom 14+, min 0.4).
   const pinScale = Math.max(0.4, Math.min(1, 1 - (14 - zoom) * 0.15));
