@@ -420,6 +420,79 @@ exports.sendMessageNotification = onDocumentCreated(
   }
 );
 
+// ─── Pack request push notification ──────────────────────────────────────────
+//
+// Fires when a new pack request document is created. Sends an FCM push to the
+// recipient human so they're notified even when the app is closed. (When the app
+// is open, the in-app pendingReceived listener in pack-context already surfaces
+// the request; this covers the closed-app case.)
+
+exports.sendPackRequestNotification = onDocumentCreated(
+  { document: 'packRequests/{requestId}', region: 'us-central1' },
+  async (event) => {
+    const requestData = event.data.data();
+
+    const fromDogId = requestData.fromDogId;
+    const toHumanId = requestData.toHumanId;
+    const fromHumanId = requestData.fromHumanId;
+
+    // Need the sending dog and the recipient human to do anything useful.
+    if (!fromDogId || !toHumanId) return;
+
+    // Never notify a human about a request from their own dog. A human with two
+    // dogs could otherwise send a request to themselves (the UI only blocks the
+    // primary dog), so guard quietly here.
+    if (fromHumanId && fromHumanId === toHumanId) return;
+
+    const db = getFirestore();
+    const fcm = getMessaging();
+
+    // Look up the sending dog's display name for the notification title.
+    const senderDogSnap = await db.collection('dogs').doc(fromDogId).get();
+    const senderName = senderDogSnap.exists ? (senderDogSnap.data()?.name || 'A dog') : 'A dog';
+
+    // Look up the recipient human and their saved device tokens.
+    const recipientRef = db.collection('humans').doc(toHumanId);
+    const recipientSnap = await recipientRef.get();
+    if (!recipientSnap.exists) return; // no human doc → nothing to send to
+
+    const fcmTokens = recipientSnap.data().fcmTokens || [];
+    if (fcmTokens.length === 0) return; // recipient has no devices registered
+
+    const staleTokenStrings = [];
+
+    await Promise.all(
+      fcmTokens.map((tokenEntry) =>
+        fcm.send({
+          token: tokenEntry.token,
+          notification: {
+            title: senderName,
+            body: 'wants to join your pack! 🐾',
+          },
+          webpush: {
+            fcmOptions: { link: 'https://gosniff.vercel.app' },
+          },
+        }).catch((err) => {
+          if (err.code === 'messaging/registration-token-not-registered') {
+            staleTokenStrings.push(tokenEntry.token);
+          } else {
+            console.error(`FCM send failed for human ${toHumanId}:`, err.message);
+          }
+        })
+      )
+    );
+
+    // Prune any dead tokens FCM rejected, exactly like the other notifications.
+    if (staleTokenStrings.length > 0) {
+      const updatedTokens = fcmTokens.filter((t) => !staleTokenStrings.includes(t.token));
+      await recipientRef.update({ fcmTokens: updatedTokens });
+      console.log(`Removed ${staleTokenStrings.length} stale token(s) for human ${toHumanId}`);
+    }
+
+    console.log(`Sent pack request notification from ${senderName} to human ${toHumanId}`);
+  }
+);
+
 // ─── Test email send (TEMPORARY — for verifying email delivery) ────────────────
 //
 // HTTPS endpoint to confirm the email pipeline works end-to-end.
