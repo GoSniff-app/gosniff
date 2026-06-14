@@ -3,6 +3,7 @@ import './globals.css';
 export const metadata = {
   title: 'GoSniff - It\'s a Dog Meet Dog World',
   description: "See which dogs are at the park right now. Check in, meet up, and make new friends.",
+  appleWebApp: { title: 'GoSniff' },
   openGraph: {
     title: 'GoSniff - It\'s a Dog Meet Dog World',
     description: 'See which dogs are at the park right now. Check in, meet up, and make new friends.',

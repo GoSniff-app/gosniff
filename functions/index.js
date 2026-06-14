@@ -305,8 +305,8 @@ exports.sendCheckInNotification = onDocumentUpdated(
             fcm.send({
               token: tokenEntry.token,
               notification: {
-                title: 'GoSniff',
-                body: `${dogName} just checked in at ${locationName}! 🐕`,
+                title: dogName,
+                body: `just checked in at ${locationName}! 🐾`,
               },
               webpush: {
                 fcmOptions: { link: 'https://gosniff.vercel.app' },
