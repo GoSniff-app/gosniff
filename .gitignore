@@ -12,3 +12,15 @@ recovery-codes*.txt
 .env*.local
 *API Key*.png
 *Verification Code*.png
+
+# Never commit secrets
+Sendgrid API Key
+recovery-codes Vercel.txt
+Oath token.png
+Twilio Verification Code
+*.env
+.env*
+
+# Mac clutter
+.DS_Store
+**/.DS_Store
