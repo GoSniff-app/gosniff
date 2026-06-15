@@ -1,11 +1,10 @@
 ---
-name: Stale check-in sweep — known bug, deferred
-description: Stale check-ins are not being swept; fix requires a Firebase Cloud Function. Do not fix inline.
+name: Stale check-in sweep — DONE (deployed)
+description: Stale check-ins ARE swept by a deployed scheduled Cloud Function. Do not rebuild this.
 type: project
 ---
+Stale check-ins are swept automatically. This is built and deployed — do not rebuild it.
 
-Stale check-ins are not being swept from Firestore.
+**What handles it:** sweepStaleCheckIns, a deployed scheduled Cloud Function that runs every 5 minutes and resets check-ins older than 60 minutes. hourlyCleanup handles related Firestore cleanup. The architecture originally planned for this same job to also handle 24h message retention cleanup.
 
-**Why:** Needs a Firebase Cloud Function (scheduled/nightly job) to sweep expired check-ins. The architecture notes this same function will also handle 24h message retention cleanup.
-
-**How to apply:** Do not attempt to fix this inline or with client-side workarounds. When the Cloud Functions step comes up (Step 10 of messaging architecture), address both stale check-ins and message retention in the same scheduled job.
+**How to apply:** Do not rebuild this or add client-side workarounds. If stale check-ins appear to misbehave, debug the existing sweepStaleCheckIns / hourlyCleanup functions rather than writing new ones. (Confirmed deployed June 2026; consistent with the "Auto-checkout timing" entry in DECISIONS.md.)
