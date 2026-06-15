@@ -37,6 +37,11 @@ working end-to-end on 2026-06-08.
 Status: DO NOT CHANGE. Do not wire the native reset path back into any button. The orphaned
 native code (resetPassword in auth-context.js, its import, and the oobCode branch in
 reset-password/page.js) is dead and may be deleted during a future cleanup pass.
+2026-06-14 audit confirmed the only reachable path is the custom flow: SignIn links to
+/forgot-password; nothing calls resetPassword() in auth-context.js; the oobCode branch is
+unreachable because no in-app code sends a native email. Dead-code removal targets when
+cleaned up: resetPassword + its sendPasswordResetEmail import in auth-context.js, and the
+oobCode branch in reset-password/page.js.
 
 ---
 
@@ -97,8 +102,9 @@ Status: DO NOT CHANGE.
 ---
 
 ## 2026-06-14 — Notifications are FCM push, not SMS
-Decision: Use Firebase Cloud Messaging push for check-in and message notifications. Not
-SMS. Notification sounds: squeaky toy for messages, whistle for pack check-ins.
+Decision: Use Firebase Cloud Messaging push for check-in, message, and pack-request
+notifications. Not SMS. Notification sounds: squeaky toy for messages, whistle for pack
+check-ins. (Pack-request push detail: see the 2026-06-14 sendPackRequestNotification entry.)
 Reason: SMS cost and stack fit; FCM is already in the stack.
 Status: Settled.
 
@@ -108,8 +114,10 @@ Status: Settled.
 Decision: Auto-checkout at 60 minutes. Warning at 50 minutes ("Still sniffing around?").
 Timer resets on location refresh.
 Reason: Stale check-ins (users showing checked in hours after leaving) erode trust.
-Status: Settled. (Open work, not a decision: a scheduled Cloud Function to sweep stale
-check-ins when the browser is closed still needs to be built.)
+Status: Settled. The scheduled sweep now EXISTS: `sweepStaleCheckIns` (v2 `onSchedule`,
+us-central1, every 5 minutes) resets dogs checked in longer than 60 minutes, and
+`hourlyCleanup` handles related Firestore hygiene. The earlier "still needs to be built"
+note is resolved.
 
 ---
 
@@ -126,3 +134,42 @@ Decision: Use "Sign Out" consistently (matches the hamburger menu). Visibility l
 "Meet New Dogs" and "Friends Only."
 Reason: Consistency.
 Status: Settled.
+
+---
+
+## 2026-06-14 — Map sources other dogs from getVisibleDogs (server-side), polled
+Decision: The map no longer reads the `dogs` collection directly for other dogs. Other
+checked-in dogs come from the `getVisibleDogs` callable (us-central1), which applies
+Friends-Only vs Meet-New-Dogs filtering on the server and returns
+`{ dogs: [ { id, ...dogData } ] }` — only dogs the caller may see. MapView stores the result
+in the same state the markers render from and does NOT re-apply any client-side visibility
+filter (re-filtering could double-hide a friends-only dog the server legitimately returned).
+Because a callable is one-shot, MapView polls it: once on mount, then on a repeating interval.
+The user's OWN dog is NOT sourced from getVisibleDogs — it renders in realtime from
+auth-context so the user always sees themselves immediately.
+Reason: Implements the server-side Friends-Only requirement. The old client-side
+`visibilityOnCheckIn === 'friends'` filter sent every checked-in dog (including private ones)
+to every device and only hid them in the UI — a real location-privacy leak (flagged by tester
+Aaron).
+Status: DO NOT CHANGE the server-side sourcing — do not restore a direct Firestore read of
+other dogs, and do not reintroduce client-side visibility filtering. TUNABLE without a new
+entry: the poll interval (currently 10s in MapView.js; was briefly 20s). Tradeoff: other dogs
+can lag up to one interval, and each open client calls getVisibleDogs once per interval.
+
+---
+
+## 2026-06-14 — Pack requests send an FCM push (sendPackRequestNotification)
+Decision: When a `packRequests` document is created, the Cloud Function
+`sendPackRequestNotification` (v2 `onDocumentCreated`, us-central1) sends an FCM push so the
+recipient is notified even when the app is closed. It reads `toHumanId` from the request and
+goes straight to `humans/{toHumanId}` for the `fcmTokens` (no dog->human hop). Title = sending
+dog's `name`; body = "wants to join your pack! 🐾". Webpush link is the generic app link (no
+dedicated pending-requests route exists; the in-app `pendingReceived` listener surfaces it on
+open). Quiet return if the human doc is missing or has no tokens; stale tokens pruned as in the
+other notification functions. A guard returns quietly when `fromHumanId === toHumanId` (a human
+with two dogs could otherwise notify themselves — the UI only blocks the primary dog). No mute
+support (there is no mute list for pack requests).
+Reason: Before this, a closed phone got nothing — the recipient only saw a request if the app
+was open.
+Status: DO NOT CHANGE without a new entry. Deploy is manual via the Node 22 prefix
+(`firebase deploy --only functions:sendPackRequestNotification`).

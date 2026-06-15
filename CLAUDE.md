@@ -52,6 +52,61 @@ are the source of truth.
 - "Friends Only" visibility filtering must be enforced SERVER-SIDE. Client-side filtering
   is a real privacy hole.
 
-## Project map
-<!-- Run /init in Claude Code to auto-generate the file map, build commands, and
-     conventions from the actual codebase, then trim it to the essentials here. -->
+## Commands
+- App dev server: `npm run dev` (Next.js, http://localhost:3000).
+- Production build / serve: `npm run build` / `npm start`.
+- There is NO test framework and NO linter configured (root scripts are only dev/build/start).
+  Do not assume Jest/ESLint exist. To sanity-check a function file before deploy:
+  `cd functions && PATH="/opt/homebrew/opt/node@22/bin:$PATH" node --check index.js`
+- Deploy all functions: `PATH="/opt/homebrew/opt/node@22/bin:$PATH" firebase deploy --only functions`
+- Deploy ONE function (preferred — faster, safer): append `:name`, e.g.
+  `... firebase deploy --only functions:getVisibleDogs`
+- Deploy Firestore rules / indexes: `firebase deploy --only firestore:rules` (or `firestore:indexes`).
+
+## Architecture
+- Single-page PWA. `src/app/page.js` is the only real screen: it nests the providers
+  `AuthProvider > PackProvider > AlertsProvider > ChatProvider`, then renders `SignIn`
+  (logged out) or `MapView` (logged in). The only other routes are `/forgot-password`
+  and `/reset-password`. `MapView.js` holds most of the UI (map, pins, check-in, profile
+  sheets, pack, chat entry).
+- App state lives in four context providers in `src/lib/`, each owning realtime Firestore
+  listeners (this is the source of truth, not component state):
+  - `auth-context.js` — Auth user + the user's `dogs`. `dogs[0]` is the primary dog ("myDog").
+    Owns check-in/out writes.
+  - `pack-context.js` — `packLinks` (mutual friendships), `packRequests` (pending invites),
+    and `frenemyDogIds` (private one-way "avoid" list stored on the human doc; NOT a block,
+    and NOT a visibility filter).
+  - `alerts-context.js` — map alerts. `chat-context.js` — conversations + unread counts.
+- Backend is one file: `functions/index.js` (Firebase Functions **v2**, except the single v1
+  auth trigger). Grouped by role: scheduled (`sweepStaleCheckIns`, `hourlyCleanup`); FCM pushes
+  (`sendCheckInNotification`, `sendMessageNotification`, `sendPackRequestNotification`);
+  callables (`getVisibleDogs`, plus the custom reset trio `sendPasswordResetEmail` /
+  `verifyResetCode` / `confirmPasswordResetWithCode`); auth trigger `sendWelcomeEmail`;
+  HTTP `testEmailSend`. All run in `us-central1`.
+
+## Data model (Firestore)
+- `dogs/{id}`: `name` (display name), `humanIds[]` (owner uid is `[0]`), `checkedIn`,
+  `checkedInAt` (location NAME string, not coords), `checkedInLocation` ({lat,lng}),
+  `checkedInTime`, `visibilityOnCheckIn` (`'everyone'` | `'friends'`). Location is raw
+  lat/lng only — no geohash/geo index.
+- `humans/{uid}`: `fcmTokens[]` (array of `{ token }` objects), `frenemyDogIds[]`,
+  `mutedCheckInDogIds[]`, `mutedMessageDogIds[]`, `unreadCounts{}`.
+- `packLinks/{id}`: `dogIds` and `humanIds` are each a 2-element SORTED array (so the doc is
+  queryable from either side). `packRequests/{id}`: `from/toDogId`, `from/toHumanId`, `status`.
+- `conversations/{id}/messages/{id}`: messages subcollection; `readAt` timestamp (null = unread).
+  Conversation id = the two dog ids sorted and joined with `_`.
+- `mail/{id}`: writing a doc here SENDS email via the SendGrid Trigger Email extension — never
+  call SendGrid directly. `passwordResetCodes/{code}`: custom reset codes, consumed (deleted)
+  only on final submit by `confirmPasswordResetWithCode` (not on page load — survives email
+  link-scanners).
+
+## Conventions discoverable only by reading across files
+- Other dogs on the map come from the `getVisibleDogs` callable on a poll (interval set in
+  `MapView.js`), NOT a direct Firestore read — this is the server-side enforcement of the
+  "Friends Only" boundary above. The user's OWN dog still renders in realtime from auth-context,
+  so it never waits for the poll.
+- FCM pushes follow one shape: `title` = the dog/sender name, `body` = the action; send to every
+  token in `humans/{uid}.fcmTokens`; prune any token that returns
+  `messaging/registration-token-not-registered`.
+- The lock-screen notification "source" / app name comes from `src/app/layout.js` metadata
+  (`appleWebApp.title`); there is no web manifest file.
