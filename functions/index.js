@@ -259,6 +259,71 @@ exports.sendCheckInNotification = onDocumentUpdated(
     const db = getFirestore();
     const fcm = getMessaging();
 
+    // ─── Rally fulfillment hook (additive; fail-safe) ─────────────────────────
+    // If this checking-in dog is the creator of an active rally, mark it fulfilled
+    // and tell everyone who RSVP'd "coming" that the creator has arrived. This is
+    // wrapped in its own try/catch so any failure here can NEVER break the pack
+    // check-in push below. It runs BEFORE the pack-push early returns
+    // (packLinksSnap.empty / humanIdSet empty) on purpose, so a rally is still
+    // marked fulfilled even when the creator has no pack / nobody RSVP'd.
+    try {
+      const activeRalliesSnap = await db
+        .collection('rallies')
+        .where('senderDogId', '==', dogId)
+        .where('status', '==', 'active')
+        .get();
+
+      for (const rallyDoc of activeRalliesSnap.docs) {
+        const rallyRef = rallyDoc.ref;
+
+        // Guarded, atomic transition: active + not-checked-in → fulfilled + checkedIn.
+        // If a near-simultaneous check-in already flipped it, didFulfill is false and
+        // we send nothing — this is the double-fire guard.
+        const didFulfill = await db.runTransaction(async (tx) => {
+          const snap = await tx.get(rallyRef);
+          if (!snap.exists) return false;
+          const d = snap.data();
+          if (d.status !== 'active' || d.checkedIn === true) return false;
+          tx.update(rallyRef, { checkedIn: true, status: 'fulfilled' });
+          return true;
+        });
+        if (!didFulfill) continue;
+
+        const { senderDogName, senderHumanId, placeText } = rallyDoc.data();
+
+        // Everyone who RSVP'd "coming". Empty is fine — still fulfilled, no pushes.
+        const rsvpsSnap = await rallyRef.collection('rsvps').where('status', '==', 'coming').get();
+        if (rsvpsSnap.empty) continue;
+
+        const title = senderDogName || dogName;
+        const body = `is at ${placeText} — head over! 🐾`;
+        const data = { type: 'rally_arrived', rallyId: rallyDoc.id };
+        const link = `${RALLY_APP_LINK}/?rally=${rallyDoc.id}`;
+
+        // Notify each RSVPer. Skip the creator. Mute-skip mirrors the check-in push
+        // (mutedCheckInDogIds), and sendRallyPush handles token read + stale pruning.
+        const notifiedHumanIds = new Set();
+        await Promise.all(
+          rsvpsSnap.docs.map(async (rsvpDoc) => {
+            const rsvpHumanId = rsvpDoc.data().humanId;
+            if (!rsvpHumanId || rsvpHumanId === senderHumanId) return; // never the creator
+            if (notifiedHumanIds.has(rsvpHumanId)) return;             // de-dupe humans
+            notifiedHumanIds.add(rsvpHumanId);
+
+            const rsvpHumanSnap = await db.collection('humans').doc(rsvpHumanId).get();
+            if (!rsvpHumanSnap.exists) return;
+            if (rsvpHumanSnap.data().mutedCheckInDogIds?.includes(dogId)) return; // mute-skip
+            await sendRallyPush(db, fcm, rsvpHumanId, { title, body, data, link });
+          })
+        );
+
+        console.log(`Rally ${rallyDoc.id} fulfilled by ${dogId}; notified ${notifiedHumanIds.size} RSVPer(s)`);
+      }
+    } catch (err) {
+      // Fail safe: rally hook problems must not affect the check-in push below.
+      console.error(`Rally fulfillment hook failed for dog ${dogId}:`, err.message);
+    }
+
     // Find all pack links that include this dog
     const packLinksSnap = await db
       .collection('packLinks')
@@ -783,3 +848,346 @@ exports.getVisibleDogs = onCall({ region: 'us-central1' }, async (request) => {
 
   return { dogs };
 });
+
+// ─── "Heading out" rallies ────────────────────────────────────────────────────
+//
+// A rally is the pre-arrival sibling of a check-in: a pack member says where they're
+// headed, pings their pack, collects RSVPs, then checks in for real on arrival.
+// A rally has NO coordinates and NEVER appears on the map — placeText is free text
+// and is never geocoded. Rally docs are written only here via the Admin SDK; clients
+// read only their OWN rally (sender-only Firestore rule). Recipients build their
+// banner entirely from the push payload, since they cannot read the rally doc.
+
+const RALLY_TTL_MS = 60 * 60 * 1000;          // a rally lives 60 minutes from send
+const RALLY_PLACE_MAX = 100;
+const RALLY_NOTE_MAX = 200;
+const RALLY_APP_LINK = 'https://gosniff.app'; // canonical domain (matches reset/welcome)
+
+// Radius-based recipient narrowing is a future feature. The seam exists now so the
+// call site is stable; distance logic is intentionally NOT implemented yet.
+// TODO(rally-radius): when enabled, filter `recipients` by distance, then flip the flag.
+const RADIUS_FILTER_ENABLED = false;
+function filterRallyRecipients(recipients, rally) {
+  if (!RADIUS_FILTER_ENABLED) return recipients;
+  // TODO(rally-radius): implement distance filtering against `rally` here.
+  return recipients;
+}
+
+// Body copy for the rally push (title is built at the call site with the place).
+function rallyBody(timingChoice) {
+  if (timingChoice === 'now') return 'Heading out now, come sniff!';
+  const mins = timingChoice === '30' ? 30 : 15;
+  return `Wanna go sniff? Heading there in about ${mins} minutes.`;
+}
+
+// Send one FCM data+notification message to every token a human has, pruning any
+// tokens FCM rejects — the exact prune behavior used by the other notification
+// functions (same token read, same stale-token cleanup). Mute is handled by callers.
+async function sendRallyPush(db, fcm, humanId, { title, body, data, link }) {
+  const humanRef = db.collection('humans').doc(humanId);
+  const humanSnap = await humanRef.get();
+  if (!humanSnap.exists) return false;
+  const fcmTokens = humanSnap.data().fcmTokens || [];
+  if (fcmTokens.length === 0) return false;
+
+  const staleTokenStrings = [];
+  await Promise.all(
+    fcmTokens.map((tokenEntry) =>
+      fcm.send({
+        token: tokenEntry.token,
+        notification: { title, body },
+        data,
+        webpush: { fcmOptions: { link } },
+      }).catch((err) => {
+        if (err.code === 'messaging/registration-token-not-registered') {
+          staleTokenStrings.push(tokenEntry.token);
+        } else {
+          console.error(`rally FCM send failed for human ${humanId}:`, err.message);
+        }
+      })
+    )
+  );
+
+  if (staleTokenStrings.length > 0) {
+    const updatedTokens = fcmTokens.filter((t) => !staleTokenStrings.includes(t.token));
+    await humanRef.update({ fcmTokens: updatedTokens });
+    console.log(`Removed ${staleTokenStrings.length} stale token(s) for human ${humanId}`);
+  }
+  return true;
+}
+
+// sendRally: create a rally and ping the sender's pack.
+exports.sendRally = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+  const senderDogId = (request.data?.senderDogId || '').toString();
+  const placeText = (request.data?.placeText || '').toString().trim();
+  const timingChoice = (request.data?.timingChoice || '').toString();
+  const note = (request.data?.note || '').toString().trim();
+
+  if (!senderDogId) throw new HttpsError('invalid-argument', 'Missing dog.');
+  if (!placeText || placeText.length > RALLY_PLACE_MAX) {
+    throw new HttpsError('invalid-argument', "Tell your pack where you're headed (1–100 characters).");
+  }
+  if (!['now', '15', '30'].includes(timingChoice)) {
+    throw new HttpsError('invalid-argument', 'Invalid timing.');
+  }
+  if (note.length > RALLY_NOTE_MAX) {
+    throw new HttpsError('invalid-argument', 'Note is too long (max 200 characters).');
+  }
+
+  const db = getFirestore();
+  const fcm = getMessaging();
+
+  // Verify ownership: the caller must own the sending dog.
+  const senderDogSnap = await db.collection('dogs').doc(senderDogId).get();
+  if (!senderDogSnap.exists) throw new HttpsError('not-found', 'Dog not found.');
+  const senderDogData = senderDogSnap.data();
+  if (!(senderDogData.humanIds || []).includes(uid)) {
+    throw new HttpsError('permission-denied', "You don't own that dog.");
+  }
+  const senderDogName = senderDogData.name || 'A dog';
+
+  // Timing: now→15, 15→15, 30→30 minutes to arrival; 60-minute lifespan.
+  const nowMs = Date.now();
+  const arrivalMin = timingChoice === '30' ? 30 : 15;
+  const arrivalAt = Timestamp.fromMillis(nowMs + arrivalMin * 60 * 1000);
+  const expiresAt = Timestamp.fromMillis(nowMs + RALLY_TTL_MS);
+
+  // Create the rally. senderDogName is denormalized so cancel/poke need no dog read.
+  // No coordinates are ever stored on a rally.
+  const rallyRef = await db.collection('rallies').add({
+    senderDogId,
+    senderHumanId: uid,
+    senderDogName,
+    placeText,
+    note,
+    timingChoice,
+    createdAt: FieldValue.serverTimestamp(),
+    arrivalAt,
+    expiresAt,
+    status: 'active',
+    pokeSent: false,
+    checkedIn: false,
+  });
+  const rallyId = rallyRef.id;
+
+  // Recipients = the sender's pack: every pack link containing the sender's dog,
+  // resolved to the OTHER dog's owner, excluding the sender. Shape { humanId, dogId }
+  // is what the radius seam would need later.
+  const linksSnap = await db
+    .collection('packLinks')
+    .where('dogIds', 'array-contains', senderDogId)
+    .get();
+
+  const recipientMap = new Map(); // humanId -> { humanId, dogId }
+  await Promise.all(
+    linksSnap.docs.map(async (linkDoc) => {
+      const otherDogId = (linkDoc.data().dogIds || []).find((id) => id !== senderDogId);
+      if (!otherDogId) return;
+      const otherDogSnap = await db.collection('dogs').doc(otherDogId).get();
+      if (!otherDogSnap.exists) return;
+      const otherHumanId = otherDogSnap.data()?.humanIds?.[0];
+      if (otherHumanId && otherHumanId !== uid && !recipientMap.has(otherHumanId)) {
+        recipientMap.set(otherHumanId, { humanId: otherHumanId, dogId: otherDogId });
+      }
+    })
+  );
+
+  const rally = { id: rallyId, senderDogId, senderDogName, placeText, timingChoice };
+  const recipients = filterRallyRecipients([...recipientMap.values()], rally);
+
+  const title = `🐾 ${senderDogName} is heading to ${placeText}!`;
+  const body = rallyBody(timingChoice);
+  // FCM data values must be strings; all of these already are.
+  const data = { type: 'rally', rallyId, senderDogName, placeText, timingChoice };
+  // Recipients can't read the rally doc (Q5 sender-only rule), so the background-tap
+  // RSVP banner is rebuilt from the link params. Both values are URL-encoded.
+  const link = `${RALLY_APP_LINK}/?rally=${rallyId}&from=${encodeURIComponent(senderDogName)}&place=${encodeURIComponent(placeText)}`;
+
+  let notifiedCount = 0;
+  await Promise.all(
+    recipients.map(async ({ humanId }) => {
+      // Mute governs the push only: skip if this human muted the sender's dog's
+      // check-ins (rallies ride the same check-in mute array, per spec).
+      const humanSnap = await db.collection('humans').doc(humanId).get();
+      if (!humanSnap.exists) return;
+      if (humanSnap.data().mutedCheckInDogIds?.includes(senderDogId)) return;
+      const sent = await sendRallyPush(db, fcm, humanId, { title, body, data, link });
+      if (sent) notifiedCount++;
+    })
+  );
+
+  console.log(`sendRally: ${senderDogName} → ${placeText}; notified ${notifiedCount} pack human(s); rally ${rallyId}`);
+  return { rallyId };
+});
+
+// rsvpRally: record a "coming" RSVP and ping the sender.
+exports.rsvpRally = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+  const rallyId = (request.data?.rallyId || '').toString();
+  const responderDogId = (request.data?.responderDogId || '').toString();
+  if (!rallyId || !responderDogId) throw new HttpsError('invalid-argument', 'Missing rally or dog.');
+
+  const db = getFirestore();
+  const fcm = getMessaging();
+
+  // Verify ownership of the responding dog (same pattern as sendRally).
+  const responderDogSnap = await db.collection('dogs').doc(responderDogId).get();
+  if (!responderDogSnap.exists) throw new HttpsError('not-found', 'Dog not found.');
+  const responderDogData = responderDogSnap.data();
+  if (!(responderDogData.humanIds || []).includes(uid)) {
+    throw new HttpsError('permission-denied', "You don't own that dog.");
+  }
+  const responderDogName = responderDogData.name || 'A dog';
+
+  // The rally must exist and still be active, else a friendly "ended" result.
+  const rallyRef = db.collection('rallies').doc(rallyId);
+  const rallySnap = await rallyRef.get();
+  if (!rallySnap.exists || rallySnap.data().status !== 'active') {
+    return { ended: true, message: 'This rally has ended.' };
+  }
+  const { senderHumanId, placeText } = rallySnap.data();
+
+  // Record the RSVP. senderHumanId is stamped here so the sender can read it via the
+  // flat Firestore rule (Q5). Doc id = responderDogId → one RSVP per dog.
+  await rallyRef.collection('rsvps').doc(responderDogId).set({
+    dogId: responderDogId,
+    dogName: responderDogName,
+    humanId: uid,
+    senderHumanId,
+    status: 'coming',
+    respondedAt: FieldValue.serverTimestamp(),
+  });
+
+  // Ping the sender (howl tier). Title/body mirror the existing check-in push shape
+  // (title = dog name, body = action) so it reads "{name} — is coming to {place}!".
+  if (senderHumanId && senderHumanId !== uid) {
+    await sendRallyPush(db, fcm, senderHumanId, {
+      title: `${responderDogName} 🐾`,
+      body: `is coming to ${placeText}!`,
+      data: { type: 'rally_rsvp', rallyId },
+      link: `${RALLY_APP_LINK}/?rally=${rallyId}`,
+    });
+  }
+
+  return { success: true };
+});
+
+// cancelRally: the sender calls off their rally and notifies everyone who RSVP'd.
+exports.cancelRally = onCall({ region: 'us-central1' }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Must be signed in.');
+
+  const rallyId = (request.data?.rallyId || '').toString();
+  if (!rallyId) throw new HttpsError('invalid-argument', 'Missing rally.');
+
+  const db = getFirestore();
+  const fcm = getMessaging();
+
+  const rallyRef = db.collection('rallies').doc(rallyId);
+  const rallySnap = await rallyRef.get();
+  if (!rallySnap.exists) throw new HttpsError('not-found', 'Rally not found.');
+  const rallyData = rallySnap.data();
+
+  // Only the sender can cancel their own rally.
+  if (rallyData.senderHumanId !== uid) {
+    throw new HttpsError('permission-denied', 'Only the sender can cancel this rally.');
+  }
+
+  // Status guard: only an ACTIVE rally can be cancelled. If it's already fulfilled,
+  // expired, or cancelled, return quietly and send NOTHING — this prevents a
+  // double-tap or a check-in/cancel race from stomping a settled rally back to
+  // 'cancelled' and firing bogus "called off" pushes.
+  if (rallyData.status !== 'active') {
+    console.log(`cancelRally: ${rallyId} not active (status=${rallyData.status}); no-op`);
+    return { success: true, alreadyEnded: true };
+  }
+
+  await rallyRef.update({ status: 'cancelled' });
+
+  // Tell anyone who said "coming" so nobody walks to an empty park.
+  const senderDogName = rallyData.senderDogName || 'A dog';
+  const rsvpsSnap = await rallyRef.collection('rsvps').where('status', '==', 'coming').get();
+  const humanIds = new Set();
+  rsvpsSnap.docs.forEach((d) => {
+    const hid = d.data().humanId;
+    if (hid && hid !== uid) humanIds.add(hid);
+  });
+
+  await Promise.all(
+    [...humanIds].map((humanId) =>
+      sendRallyPush(db, fcm, humanId, {
+        title: 'Rally called off 🐾',
+        body: `${senderDogName}'s rally was called off.`,
+        data: { type: 'rally_cancelled', rallyId },
+        link: `${RALLY_APP_LINK}/?rally=${rallyId}`,
+      })
+    )
+  );
+
+  console.log(`cancelRally: ${rallyId} cancelled; notified ${humanIds.size} RSVP'd human(s)`);
+  return { success: true };
+});
+
+// sendRallyPokes: nudge senders who passed their arrival time without checking in.
+exports.sendRallyPokes = onSchedule(
+  { schedule: 'every 2 minutes', region: 'us-central1' },
+  async () => {
+    const db = getFirestore();
+    const fcm = getMessaging();
+
+    const now = Timestamp.now();
+    const snap = await db.collection('rallies')
+      .where('status', '==', 'active')
+      .where('pokeSent', '==', false)
+      .where('checkedIn', '==', false)
+      .where('arrivalAt', '<=', now)
+      .get();
+    if (snap.empty) return;
+
+    let poked = 0;
+    await Promise.all(
+      snap.docs.map(async (rallyDoc) => {
+        const { senderHumanId, senderDogName, placeText } = rallyDoc.data();
+        const rallyId = rallyDoc.id;
+
+        // Mark poked FIRST so an overlapping run can't double-poke the same rally.
+        await rallyDoc.ref.update({ pokeSent: true });
+        if (!senderHumanId) return;
+
+        const sent = await sendRallyPush(db, fcm, senderHumanId, {
+          title: '🐾 Check in?',
+          body: `Did you make it to ${placeText}? Check ${senderDogName || 'your dog'} in.`,
+          data: { type: 'rally_poke', rallyId },
+          link: `${RALLY_APP_LINK}/?rally=${rallyId}`,
+        });
+        if (sent) poked++;
+      })
+    );
+
+    console.log(`sendRallyPokes: poked ${poked} sender(s).`);
+  }
+);
+
+// expireRallies: retire rallies that have outlived their 60-minute lifespan.
+exports.expireRallies = onSchedule(
+  { schedule: 'every 5 minutes', region: 'us-central1' },
+  async () => {
+    const db = getFirestore();
+    const now = Timestamp.now();
+    const snap = await db.collection('rallies')
+      .where('status', '==', 'active')
+      .where('expiresAt', '<=', now)
+      .get();
+    if (snap.empty) return;
+
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.update(d.ref, { status: 'expired' }));
+    await batch.commit();
+    console.log(`expireRallies: expired ${snap.size} rally(ies).`);
+  }
+);

@@ -7,6 +7,56 @@
         { "fieldPath": "humanIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "lastMessageTime", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "packRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "toHumanId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "packRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromHumanId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rallies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "senderHumanId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rallies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "senderDogId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rallies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "pokeSent", "order": "ASCENDING" },
+        { "fieldPath": "checkedIn", "order": "ASCENDING" },
+        { "fieldPath": "arrivalAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rallies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

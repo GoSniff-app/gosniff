@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { PackProvider, usePack } from '@/lib/pack-context';
 import { AlertsProvider } from '@/lib/alerts-context';
 import { ChatProvider } from '@/lib/chat-context';
+import { RallyProvider } from '@/lib/rally-context';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import JoinThePack from '@/components/JoinThePack';
@@ -133,7 +134,9 @@ export default function Home() {
       <PackProvider>
         <AlertsProvider>
           <ChatProvider>
-            <AppContent />
+            <RallyProvider>
+              <AppContent />
+            </RallyProvider>
           </ChatProvider>
         </AlertsProvider>
       </PackProvider>

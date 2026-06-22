@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { usePack } from '@/lib/pack-context';
 import { useAlerts } from '@/lib/alerts-context';
 import { useChat } from '@/lib/chat-context';
+import { useRally } from '@/lib/rally-context';
 import PawLogo from './PawLogo';
 import EditProfile from './EditProfile';
 import MyPackList from './MyPackList';
@@ -46,6 +47,11 @@ function timeAgo(ts) {
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   return `${Math.floor(mins / 60)}h ago`;
+}
+
+function formatClockTime(ts) {
+  if (!ts?.toDate) return '';
+  return ts.toDate().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 const mapStyles = [
@@ -108,6 +114,7 @@ export default function MapView() {
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert, myVotes } = useAlerts();
   const { totalUnreadCount, setActiveConversationId } = useChat();
+  const { sendRally, myActiveRally, myRallyRsvps, cancelRally } = useRally();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -120,7 +127,14 @@ export default function MapView() {
   const [checkingIn, setCheckingIn] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [showCheckInPanel, setShowCheckInPanel] = useState(false);
+  const [showHeadingOutPanel, setShowHeadingOutPanel] = useState(false);
   const [checkInVisibility, setCheckInVisibility] = useState('everyone');
+  const [rallyPlace, setRallyPlace] = useState('');
+  const [rallyTiming, setRallyTiming] = useState('now');
+  const [rallyNote, setRallyNote] = useState('');
+  const [sendingRally, setSendingRally] = useState(false);
+  const [confirmCancelRally, setConfirmCancelRally] = useState(false);
+  const [cancellingRally, setCancellingRally] = useState(false);
   const autoCheckoutRef = useRef(null);
   const stillSniffingPromptRef = useRef(null);
   const myDog = dogs[0];
@@ -423,6 +437,28 @@ export default function MapView() {
     }
   }
 
+  async function handleSendRally() {
+    if (!rallyPlace.trim()) return;
+    setSendingRally(true);
+    try {
+      await sendRally({
+        senderDogId: myDog.id,
+        placeText: rallyPlace.trim(),
+        timingChoice: rallyTiming,
+        note: rallyNote.trim(),
+      });
+      setShowHeadingOutPanel(false);
+      setRallyPlace('');
+      setRallyTiming('now');
+      setRallyNote('');
+    } catch (err) {
+      console.error('Send rally failed:', err);
+      alert("Couldn't send your rally. Please try again.");
+    } finally {
+      setSendingRally(false);
+    }
+  }
+
   if (!isLoaded) {
     return (
       <div className="h-screen w-screen flex items-center justify-center" style={{ background: 'var(--gs-bg)' }}>
@@ -564,7 +600,7 @@ export default function MapView() {
       </GoogleMap>
 
       {/* EMPTY MAP STATE */}
-      {visibleDogs.length === 0 && !showCheckInPanel && !dismissedEmptyMap && (
+      {visibleDogs.length === 0 && !showCheckInPanel && !dismissedEmptyMap && !showHeadingOutPanel && !myActiveRally && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -605,19 +641,64 @@ export default function MapView() {
               </p>
             )}
             <button
-              className="btn-primary w-full"
-              style={{ marginBottom: '10px', fontSize: '0.95rem' }}
-              onClick={handleOpenCheckIn}
+              onClick={() => setShowHeadingOutPanel(true)}
+              style={{
+                width: '100%',
+                marginBottom: '10px',
+                padding: '14px',
+                fontSize: '0.95rem',
+                borderRadius: '18px',
+                fontWeight: 600,
+                background: '#ffffff',
+                border: '2px solid var(--gs-teal)',
+                color: 'var(--gs-teal)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
             >
-              We're here!
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="var(--gs-teal)" style={{ flexShrink: 0 }}>
+                <ellipse cx="7" cy="16.5" rx="2.4" ry="3" />
+                <circle cx="4.3" cy="13" r="1.15" />
+                <circle cx="7" cy="11.7" r="1.15" />
+                <circle cx="9.7" cy="13" r="1.15" />
+                <ellipse cx="16" cy="9" rx="2.4" ry="3" />
+                <circle cx="13.3" cy="5.5" r="1.15" />
+                <circle cx="16" cy="4.2" r="1.15" />
+                <circle cx="18.7" cy="5.5" r="1.15" />
+              </svg>
+              Heading Out
             </button>
             <button
-              className="btn-secondary w-full"
-              style={{ fontSize: '0.875rem' }}
-              onClick={handleInvite}
+              className="btn-primary"
+              style={{ width: '100%', marginBottom: '12px', padding: '14px', fontSize: '0.95rem', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              onClick={handleOpenCheckIn}
             >
-              {copied ? '✓ Link copied!' : 'Invite Your Dog Friends'}
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M18 9c0 5-6 11-6 11S6 14 6 9a6 6 0 0 1 12 0Z" />
+                <circle cx="12" cy="9" r="2.2" />
+              </svg>
+              We're here!
             </button>
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={handleInvite}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--gs-teal)',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                {copied ? '✓ Link copied!' : 'Invite your dog friends to GoSniff'}
+              </button>
+            </div>
             {inviteFallbackUrl && (
               <div style={{ marginTop: '8px' }}>
                 <input
@@ -1124,42 +1205,261 @@ export default function MapView() {
           </div>
         )}
 
-        {!myDog?.checkedIn && !showCheckInPanel && (
+        {showHeadingOutPanel && (
+          <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
+            <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <h3 className="font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', margin: 0 }}>
+                Join us for a sniff at...
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowHeadingOutPanel(false)}
+                aria-label="Close"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', opacity: 0.5, display: 'flex', alignItems: 'center' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            <input
+              type="text"
+              className="gs-input mb-2"
+              placeholder="e.g., Dolores Park"
+              value={rallyPlace}
+              onChange={(e) => setRallyPlace(e.target.value)}
+              autoFocus
+            />
+
+            <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Leaving</p>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <button
+                style={{
+                  flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                  borderRadius: '20px', cursor: 'pointer', transition: 'border 0.15s',
+                  background: '#9FE1CB', color: '#04342C',
+                  border: rallyTiming === 'now' ? '2px solid #0F6E56' : '2px solid transparent',
+                }}
+                onClick={() => setRallyTiming('now')}
+              >
+                Now
+              </button>
+              <button
+                style={{
+                  flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                  borderRadius: '20px', cursor: 'pointer', transition: 'border 0.15s',
+                  background: '#9FE1CB', color: '#04342C',
+                  border: rallyTiming === '15' ? '2px solid #0F6E56' : '2px solid transparent',
+                }}
+                onClick={() => setRallyTiming('15')}
+              >
+                15 min
+              </button>
+              <button
+                style={{
+                  flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                  borderRadius: '20px', cursor: 'pointer', transition: 'border 0.15s',
+                  background: '#9FE1CB', color: '#04342C',
+                  border: rallyTiming === '30' ? '2px solid #0F6E56' : '2px solid transparent',
+                }}
+                onClick={() => setRallyTiming('30')}
+              >
+                30 min
+              </button>
+            </div>
+
+            <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Optional note</p>
+            <input
+              type="text"
+              className="gs-input mb-2"
+              placeholder="e.g., bring a ball"
+              value={rallyNote}
+              onChange={(e) => setRallyNote(e.target.value)}
+            />
+
+            <div className="flex gap-2">
+              <button
+                className="btn-secondary flex-1 text-sm"
+                onClick={() => { setShowHeadingOutPanel(false); setRallyPlace(''); setRallyTiming('now'); setRallyNote(''); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary flex-1 text-sm"
+                onClick={handleSendRally}
+                disabled={!rallyPlace.trim() || sendingRally}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M10 14 21 3M21 3l-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1Z" />
+                </svg>
+                {sendingRally ? 'Sending...' : 'Rally my pack'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {myActiveRally && !myDog?.checkedIn && !showCheckInPanel && !showHeadingOutPanel && (
+          <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
+            {/* Header: paw + heading-to place (wraps for long names) */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--gs-teal)" style={{ flexShrink: 0, marginTop: '2px' }}>
+                <ellipse cx="7" cy="16.5" rx="2.4" ry="3" />
+                <circle cx="4.3" cy="13" r="1.15" />
+                <circle cx="7" cy="11.7" r="1.15" />
+                <circle cx="9.7" cy="13" r="1.15" />
+                <ellipse cx="16" cy="9" rx="2.4" ry="3" />
+                <circle cx="13.3" cy="5.5" r="1.15" />
+                <circle cx="16" cy="4.2" r="1.15" />
+                <circle cx="18.7" cy="5.5" r="1.15" />
+              </svg>
+              <h3 className="font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', margin: 0, fontSize: '1rem', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                We're heading out to {myActiveRally.placeText}
+              </h3>
+            </div>
+
+            {/* Sub-row: arriving time + Live pill */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: myActiveRally.note ? '6px' : '10px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: 0 }}>
+                Arriving ~{formatClockTime(myActiveRally.arrivalAt)}
+              </p>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(0,148,163,0.10)', borderRadius: '20px', padding: '3px 9px', flexShrink: 0 }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--gs-teal)', display: 'inline-block' }} />
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--gs-teal)' }}>Live</span>
+              </span>
+            </div>
+
+            {/* Optional note */}
+            {myActiveRally.note && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', marginBottom: '10px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gs-text-light)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />
+                </svg>
+                <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: 0, fontStyle: 'italic', wordBreak: 'break-word' }}>
+                  {myActiveRally.note}
+                </p>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'rgba(0,0,0,0.08)', margin: '4px 0 10px' }} />
+
+            {/* Who's coming */}
+            <p className="text-xs font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Who's coming</p>
+            {myRallyRsvps.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gs-text-light)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+                <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: 0, fontStyle: 'italic' }}>
+                  Waiting on your pack…
+                </p>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '12px' }}>
+                {myRallyRsvps.map((r) => (
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                      <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--gs-forest)', fontWeight: 600 }}>{r.dogName}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--gs-text-light)' }}>coming</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Action row / inline cancel confirm */}
+            {confirmCancelRally ? (
+              <div className="fade-in" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <p style={{ flex: 1, fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: 0, lineHeight: 1.4 }}>
+                  Cancel rally?
+                </p>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: '7px 12px', fontSize: '0.8rem', flexShrink: 0 }}
+                  onClick={() => setConfirmCancelRally(false)}
+                >
+                  Keep
+                </button>
+                <button
+                  style={{ padding: '7px 12px', fontSize: '0.8rem', fontWeight: 700, background: 'var(--gs-coral, #FF6B6B)', color: '#fff', border: 'none', borderRadius: '10px', cursor: cancellingRally ? 'wait' : 'pointer', flexShrink: 0 }}
+                  disabled={cancellingRally}
+                  onClick={async () => {
+                    setCancellingRally(true);
+                    try { await cancelRally(myActiveRally.id); setConfirmCancelRally(false); }
+                    catch (err) { console.error('Cancel rally failed:', err); alert("Couldn't cancel your rally. Please try again."); }
+                    setCancellingRally(false);
+                  }}
+                >
+                  {cancellingRally ? '…' : 'Yes'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  className="btn-primary flex-1 text-sm"
+                  onClick={handleOpenCheckIn}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M18 9c0 5-6 11-6 11S6 14 6 9a6 6 0 0 1 12 0Z" />
+                    <circle cx="12" cy="9" r="2.2" />
+                  </svg>
+                  We're here!
+                </button>
+                <button
+                  className="btn-secondary flex-1 text-sm"
+                  onClick={() => setConfirmCancelRally(true)}
+                >
+                  Cancel rally
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!myDog?.checkedIn && !showCheckInPanel && !showHeadingOutPanel && !myActiveRally && !(visibleDogs.length === 0 && !dismissedEmptyMap) && (
           <div className="flex gap-3 bounce-in" style={{ pointerEvents: 'auto' }}>
-            <button className="btn-primary" onClick={handleOpenCheckIn}
-              style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: '18px' }}>
-              We're here!
-            </button>
             <button
-              onClick={handleRefreshLocation}
-              disabled={refreshingLocation}
+              onClick={() => setShowHeadingOutPanel(true)}
               style={{
-                padding: '10px 14px',
+                flex: 1,
+                padding: '14px',
+                fontSize: '0.95rem',
                 borderRadius: '18px',
-                background: refreshingLocation ? 'var(--gs-teal-light)' : '#ffffff',
-                border: '1.5px solid var(--gs-gray-200)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                fontWeight: 600,
+                background: '#ffffff',
+                border: '2px solid var(--gs-teal)',
+                color: 'var(--gs-teal)',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
-                cursor: refreshingLocation ? 'wait' : 'pointer',
-                flexShrink: 0,
               }}
             >
-              <svg
-                width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
-                style={{ animation: refreshingLocation ? 'pulse-logo 1s ease-in-out infinite' : 'none', flexShrink: 0 }}
-              >
-                <circle cx="12" cy="12" r="3" stroke="var(--gs-teal)" strokeWidth="2" />
-                <circle cx="12" cy="12" r="8" stroke="var(--gs-teal)" strokeWidth="1.5" fill="none" />
-                <line x1="12" y1="0" x2="12" y2="4" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-                <line x1="12" y1="20" x2="12" y2="24" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-                <line x1="0" y1="12" x2="4" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
-                <line x1="20" y1="12" x2="24" y2="12" stroke="var(--gs-teal)" strokeWidth="1.5" strokeLinecap="round" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--gs-teal)" style={{ flexShrink: 0 }}>
+                <ellipse cx="7" cy="16.5" rx="2.4" ry="3" />
+                <circle cx="4.3" cy="13" r="1.15" />
+                <circle cx="7" cy="11.7" r="1.15" />
+                <circle cx="9.7" cy="13" r="1.15" />
+                <ellipse cx="16" cy="9" rx="2.4" ry="3" />
+                <circle cx="13.3" cy="5.5" r="1.15" />
+                <circle cx="16" cy="4.2" r="1.15" />
+                <circle cx="18.7" cy="5.5" r="1.15" />
               </svg>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--gs-teal)', whiteSpace: 'nowrap' }}>
-                {refreshingLocation ? 'Finding...' : 'Refresh Location'}
-              </span>
+              Heading Out
+            </button>
+            <button className="btn-primary" onClick={handleOpenCheckIn}
+              style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M18 9c0 5-6 11-6 11S6 14 6 9a6 6 0 0 1 12 0Z" />
+                <circle cx="12" cy="9" r="2.2" />
+              </svg>
+              We're here!
             </button>
           </div>
         )}
