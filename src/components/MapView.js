@@ -114,7 +114,7 @@ export default function MapView() {
   const { pendingReceived, myPack, getPackRequestStatus, sendPackRequest, acceptPackRequest, declinePackRequest, removeFromPack, frenemyDogIds, addFrenemy, removeFrenemy } = usePack();
   const { activeAlerts, voteOnAlert, reportAlert, myVotes } = useAlerts();
   const { totalUnreadCount, setActiveConversationId } = useChat();
-  const { sendRally, myActiveRally, myRallyRsvps, cancelRally } = useRally();
+  const { sendRally, rsvpRally, myActiveRally, myRallyRsvps, cancelRally } = useRally();
   const [map, setMap] = useState(null);
   const [center, setCenter] = useState(defaultCenter);
   const [nearbyDogs, setNearbyDogs] = useState([]);
@@ -135,6 +135,18 @@ export default function MapView() {
   const [sendingRally, setSendingRally] = useState(false);
   const [confirmCancelRally, setConfirmCancelRally] = useState(false);
   const [cancellingRally, setCancellingRally] = useState(false);
+  // Incoming rally deep-link (/?rally=<id>&from=<senderDogName>&place=<placeText>).
+  // URLSearchParams.get() URL-decodes for us. Read once on load.
+  const [incomingRally] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const p = new URLSearchParams(window.location.search);
+    const id = p.get('rally');
+    if (!id) return null;
+    return { id, from: p.get('from') || '', place: p.get('place') || '' };
+  });
+  const [rsvpConfirmedLabel, setRsvpConfirmedLabel] = useState(null); // null = invite state
+  const [rsvpSubmitting, setRsvpSubmitting] = useState(false);
+  const [rsvpDismissed, setRsvpDismissed] = useState(false);
   const autoCheckoutRef = useRef(null);
   const stillSniffingPromptRef = useRef(null);
   const myDog = dogs[0];
@@ -456,6 +468,28 @@ export default function MapView() {
       alert("Couldn't send your rally. Please try again.");
     } finally {
       setSendingRally(false);
+    }
+  }
+
+  // Recipient one-tap RSVP. Calls the existing rsvpRally callable; label ('Now' /
+  // '15 min' / '30 min') is stored locally for display only. status is always 'coming'
+  // server-side in this version.
+  async function handleRsvp(label) {
+    if (!myDog || !incomingRally || rsvpSubmitting) return;
+    setRsvpSubmitting(true);
+    try {
+      const res = await rsvpRally({ rallyId: incomingRally.id, responderDogId: myDog.id });
+      if (res?.ended) {
+        alert('This rally has ended.');
+        setRsvpDismissed(true);
+      } else {
+        setRsvpConfirmedLabel(label);
+      }
+    } catch (err) {
+      console.error('RSVP failed:', err);
+      alert("Couldn't send your RSVP. Please try again.");
+    } finally {
+      setRsvpSubmitting(false);
     }
   }
 
@@ -1417,6 +1451,96 @@ export default function MapView() {
                   Cancel rally
                 </button>
               </div>
+            )}
+          </div>
+        )}
+
+        {incomingRally && myDog && !rsvpDismissed
+          && !(myActiveRally && myActiveRally.id === incomingRally.id)
+          && !showCheckInPanel && !showHeadingOutPanel && (
+          <div className="gs-card mb-3 slide-up" style={{ pointerEvents: 'auto' }}>
+            {rsvpConfirmedLabel ? (
+              <>
+                {/* Confirmed state */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0, marginTop: '3px' }}>
+                    <path d="M3 9l4 4 8-8" stroke="var(--gs-green)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <h3 className="font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', margin: 0, fontSize: '1rem', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                    {myDog.name} is coming to {incomingRally.place || 'the park'}
+                  </h3>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: '0 0 10px' }}>
+                  {rsvpConfirmedLabel === 'Now' ? 'Arriving now' : `Arriving in ${rsvpConfirmedLabel}`}
+                </p>
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    onClick={() => setRsvpDismissed(true)}
+                    style={{ background: 'none', border: 'none', color: 'var(--gs-text-light)', fontSize: '0.8rem', fontWeight: 500, textDecoration: 'underline', cursor: 'pointer', padding: '4px' }}
+                  >
+                    Can't make it after all
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Invite state */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--gs-teal)" style={{ flexShrink: 0, marginTop: '2px' }}>
+                    <ellipse cx="7" cy="16.5" rx="2.4" ry="3" />
+                    <circle cx="4.3" cy="13" r="1.15" />
+                    <circle cx="7" cy="11.7" r="1.15" />
+                    <circle cx="9.7" cy="13" r="1.15" />
+                    <ellipse cx="16" cy="9" rx="2.4" ry="3" />
+                    <circle cx="13.3" cy="5.5" r="1.15" />
+                    <circle cx="16" cy="4.2" r="1.15" />
+                    <circle cx="18.7" cy="5.5" r="1.15" />
+                  </svg>
+                  <h3 className="font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', margin: 0, fontSize: '1rem', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                    {incomingRally.from || 'A packmate'} is heading out
+                  </h3>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gs-teal)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M18 9c0 5-6 11-6 11S6 14 6 9a6 6 0 0 1 12 0Z" />
+                    <circle cx="12" cy="9" r="2.2" />
+                  </svg>
+                  <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--gs-forest)', margin: 0, wordBreak: 'break-word' }}>
+                    {incomingRally.place || 'the park'}
+                  </p>
+                </div>
+
+                <p style={{ fontSize: '0.8rem', color: 'var(--gs-text-light)', margin: '0 0 10px' }}>
+                  Coming? Tap when you'll get there
+                </p>
+
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  {['Now', '15 min', '30 min'].map((label) => (
+                    <button
+                      key={label}
+                      disabled={rsvpSubmitting}
+                      onClick={() => handleRsvp(label)}
+                      style={{
+                        flex: 1, padding: '9px 10px', fontSize: '0.825rem', fontWeight: 600,
+                        borderRadius: '20px', cursor: rsvpSubmitting ? 'wait' : 'pointer',
+                        background: '#9FE1CB', color: '#04342C', border: '2px solid transparent',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                  <button
+                    onClick={() => setRsvpDismissed(true)}
+                    style={{ background: 'none', border: 'none', color: 'var(--gs-text-light)', fontSize: '0.8rem', fontWeight: 500, textDecoration: 'underline', cursor: 'pointer', padding: '4px' }}
+                  >
+                    Can't today
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}

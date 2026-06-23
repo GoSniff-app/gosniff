@@ -97,10 +97,18 @@ export function RallyProvider({ children }) {
     return result.data; // { success: true }
   }
 
+  // RSVP to a rally. Matches the deployed rsvpRally callable: { rallyId, responderDogId }.
+  // Returns { success: true } or { ended: true, message } if the rally is no longer active.
+  async function rsvpRally({ rallyId, responderDogId }) {
+    const result = await httpsCallable(getFunctions(), 'rsvpRally')({ rallyId, responderDogId });
+    return result.data;
+  }
+
   const value = {
     myActiveRally,
     myRallyRsvps,
     sendRally,
+    rsvpRally,
     cancelRally,
   };
 
