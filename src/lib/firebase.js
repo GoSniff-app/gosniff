@@ -42,7 +42,10 @@ export async function getOrCreateFCMToken() {
   try {
     await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     const swRegistration = await navigator.serviceWorker.ready;
-    const token = await getToken(messaging, { serviceWorkerRegistration: swRegistration });
+    const token = await getToken(messaging, {
+      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: swRegistration,
+    });
     return token || null;
   } catch (err) {
     console.warn('[FCM] getToken failed, retrying after cleanup:', err.message);
@@ -54,7 +57,10 @@ export async function getOrCreateFCMToken() {
     } catch (_) { /* ignore cleanup errors */ }
     try {
       const swRegistration = await navigator.serviceWorker.ready;
-      const token = await getToken(messaging, { serviceWorkerRegistration: swRegistration });
+      const token = await getToken(messaging, {
+        vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: swRegistration,
+      });
       return token || null;
     } catch (retryErr) {
       console.error('[FCM] getToken failed after retry:', retryErr.message);
