@@ -43,15 +43,21 @@ export async function getOrCreateFCMToken() {
     await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     const swRegistration = await navigator.serviceWorker.ready;
     const vk = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+    let existingSub = null;
+    try { existingSub = await swRegistration.pushManager.getSubscription(); } catch (e) {}
     console.log('[VAPID-DEBUG]', {
       type: typeof vk,
       length: vk ? vk.length : 0,
       first8: vk ? vk.slice(0, 8) : null,
       last4: vk ? vk.slice(-4) : null,
       lastCharCode: vk ? vk.charCodeAt(vk.length - 1) : null,
+      hasPlus: vk ? vk.includes('+') : null,
+      hasSlash: vk ? vk.includes('/') : null,
+      hasEquals: vk ? vk.includes('=') : null,
+      hasExistingSubscription: !!existingSub,
     });
     const token = await getToken(messaging, {
-      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+      vapidKey: vk,
       serviceWorkerRegistration: swRegistration,
     });
     return token || null;
