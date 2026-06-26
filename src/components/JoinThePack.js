@@ -168,7 +168,7 @@ export default function JoinThePack({ onBack }) {
             <div className="text-center mb-6">
               <PawLogo size={56} className="mx-auto mb-3" />
               <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Join the Pack</h2>
-              <p style={{ color: 'var(--gs-text-light)' }}>Let's start with the important stuff.</p>
+              <p style={{ color: 'var(--gs-text-light)' }}>Just your dog's info (humans are anonymous here).</p>
             </div>
             <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>What's your dog's name?</label>
             <input type="text" className="gs-input text-lg" placeholder="e.g. Biscuit, Mochi, Luna..." value={dogName} onChange={(e) => setDogName(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && dogName.trim() && setStep(2)} />
