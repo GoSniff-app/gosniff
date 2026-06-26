@@ -121,8 +121,6 @@ function AppContent() {
             I Already Have an Account
           </button>
         </div>
-        <p style={{ marginTop: '48px', fontSize: '22px', fontWeight: 700, color: 'var(--gs-forest)', textAlign: 'center' }}>Your dog is the star. You're just holding the phone.</p>
-        <p style={{ marginTop: '2px', fontSize: '17px', fontStyle: 'italic', color: 'var(--gs-text-light)', textAlign: 'center' }}>Your human identity is never revealed.</p>
       </div>
     </div>
   );
