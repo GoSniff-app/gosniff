@@ -35,7 +35,7 @@ export default function SignIn({ onSwitchToJoin }) {
         <div className="text-center mb-6">
           <PawLogo size={56} className="mx-auto mb-3" />
           <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Welcome Back</h2>
-          <p style={{ color: 'var(--gs-text-light)' }}>Your pack is waiting.</p>
+          <p style={{ color: 'var(--gs-text-light)' }}>The park isn't going to sniff itself.</p>
         </div>
         {error && (
           <div className="p-3 rounded-xl mb-4 text-sm" style={{ background: '#FEE2E2', color: '#991B1B' }}>{error}</div>
