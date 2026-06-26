@@ -13,11 +13,21 @@ import SignIn from '@/components/SignIn';
 import MapView from '@/components/MapView';
 import PawLogo from '@/components/PawLogo';
 
+const LOADING_LINES = [
+  "Seeing who's at the park...",
+  "Did someone say walk?!",
+  "My face, your ass.",
+  "Sniffing butts so you don't have to.",
+  "I have smelled things you would not believe.",
+  "Checking pee-mail...",
+];
+
 function AppContent() {
   const { user, dogs, loading, dogsLoaded } = useAuth();
   const { sendPackRequest } = usePack();
   const [authMode, setAuthMode] = useState('welcome');
   const [inviteToast, setInviteToast] = useState(null);
+  const [loadingLine] = useState(() => LOADING_LINES[Math.floor(Math.random() * LOADING_LINES.length)]);
   const inviteHandledRef = useRef(false);
 
   const addPackDogId = useState(() => {
@@ -63,7 +73,7 @@ function AppContent() {
         <div style={{ textAlign: 'center' }} className="fade-in">
           <PawLogo size={72} className="mx-auto mb-4" animate />
           <h1 style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)', fontSize: '1.875rem', fontWeight: 700, marginBottom: '4px' }}>GoSniff</h1>
-          <p style={{ color: 'var(--gs-text-light)', fontSize: '0.875rem' }}>Loading your pack...</p>
+          <p style={{ color: 'var(--gs-text-light)', fontSize: '0.875rem' }}>{loadingLine}</p>
         </div>
       </div>
     );
