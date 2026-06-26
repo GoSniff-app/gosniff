@@ -1260,7 +1260,7 @@ export default function MapView() {
             <input
               type="text"
               className="gs-input mb-2"
-              placeholder="e.g., Dolores Park"
+              placeholder="e.g. Dolores Park"
               value={rallyPlace}
               onChange={(e) => setRallyPlace(e.target.value)}
               autoFocus
@@ -1307,7 +1307,7 @@ export default function MapView() {
             <input
               type="text"
               className="gs-input mb-2"
-              placeholder="e.g., bring a ball"
+              placeholder="e.g. bring a ball"
               value={rallyNote}
               onChange={(e) => setRallyNote(e.target.value)}
             />
