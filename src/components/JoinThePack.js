@@ -190,10 +190,9 @@ export default function JoinThePack({ onBack }) {
               ) : (
                 <div className="w-32 h-32 rounded-full flex items-center justify-center" style={{ background: 'var(--gs-cream)', border: '3px dashed var(--gs-mint)' }}>
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="24" cy="20" r="8" stroke="#a3a3a3" strokeWidth="2" fill="none"/>
-                    <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a3a3a3" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                    <circle cx="20" cy="12" r="3" fill="#a3a3a3"/>
-                    <circle cx="28" cy="12" r="3" fill="#a3a3a3"/>
+                    <rect x="8" y="17" width="32" height="20" rx="4" stroke="#a3a3a3" strokeWidth="2" fill="none"/>
+                    <path d="M19 17 l2-3 h6 l2 3" stroke="#a3a3a3" strokeWidth="2" fill="none" strokeLinejoin="round"/>
+                    <circle cx="24" cy="27" r="6" stroke="#a3a3a3" strokeWidth="2" fill="none"/>
                   </svg>
                 </div>
               )}
