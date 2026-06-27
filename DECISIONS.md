@@ -173,3 +173,24 @@ Reason: Before this, a closed phone got nothing — the recipient only saw a req
 was open.
 Status: DO NOT CHANGE without a new entry. Deploy is manual via the Node 22 prefix
 (`firebase deploy --only functions:sendPackRequestNotification`).
+
+---
+
+## 2026-06-26 — Signup Back-button navigation convention
+Decision: The JoinThePack signup flow has exactly one Back affordance per step.
+- Step 1: a top-of-card Back that EXITS signup, calling onBack, which routes to the
+  remembered entry screen via the joinOrigin state in page.js (landing if the user came
+  from the landing "Join the Pack" button, Sign In if they came from Sign In's "New here?"
+  link). If onBack is absent (the already-signed-in profile-completion render), step 1
+  shows no Back.
+- Steps 2-5: a single bottom Back that steps back one screen via setStep(step - 1). The
+  top-of-card Back is hidden on these steps (gated on `step === 1 && onBack`).
+Reason: Previously the top-of-card Back showed on every step, so steps 2-5 had two Backs and
+one of them jumped the user all the way out of signup. And before joinOrigin, step-1 Back was
+hardcoded to Sign In, stranding users who entered from the landing screen.
+Status: Settled. Do not reintroduce a second Back button on steps 2-5, and keep the entry
+screen driven by joinOrigin (do not hardcode onBack to a single screen).
+
+Open / parked: The phone/browser hardware Back button mid-signup is a SEPARATE, unresolved
+issue — it drops the user out of signup and loses typed input, because the multi-step flow
+records no browser-history entry per step. Deliberately deferred this session.
