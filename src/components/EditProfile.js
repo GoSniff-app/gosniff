@@ -39,7 +39,7 @@ const ENERGY = [
   'Puppy Pandemonium', 'Senior Sniffs', 'Shy But Canine Curious',
   'Selective Sniffer', 'Ball Is Life', 'Social Butterfly',
 ];
-const GENDERS = ['Male', 'Female'];
+const GENDERS = ['Male', 'Female', 'Non-Binary'];
 
 function compressImage(file, maxWidth = 400, quality = 0.7) {
   return new Promise((resolve) => {
