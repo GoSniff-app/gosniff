@@ -248,7 +248,7 @@ export default function JoinThePack({ onBack }) {
         {step === 4 && (
           <div className="fade-in">
             <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>Tell us about {dogName}</h2>
+              <h2 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: 'var(--gs-forest)' }}>About Me</h2>
             </div>
             <div className="mb-4">
               <label className="block text-sm font-bold mb-2" style={{ color: 'var(--gs-green)' }}>Size</label>
