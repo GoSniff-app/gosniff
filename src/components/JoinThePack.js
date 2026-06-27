@@ -139,8 +139,8 @@ export default function JoinThePack({ onBack }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 paw-pattern" style={{ background: 'var(--gs-bg)' }}>
       <div className="gs-card w-full max-w-md slide-up">
-        {/* Back button — only shown when navigated from Sign In */}
-        {onBack && (
+        {/* Back button — step 1 only; exits signup to the entry screen (landing or Sign In). Steps 2–5 use their own bottom Back. */}
+        {step === 1 && onBack && (
           <button
             onClick={onBack}
             style={{
