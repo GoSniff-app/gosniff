@@ -35,9 +35,11 @@ const BREEDS = [
 
 const SIZES = ['Small (under 25 lbs)', 'Medium (25-50 lbs)', 'Large (50-90 lbs)', 'XL (90+ lbs)'];
 const ENERGY = [
-  'Couch Potato', 'Casual Sniffer', 'Full Zoomies', 'Adolescent Insanity',
-  'Puppy Pandemonium', 'Senior Sniffs', 'Shy But Canine Curious',
-  'Selective Sniffer', 'Ball Is Life', 'Social Butterfly',
+  'Couch Potato', 'Senior Sniffs',
+  'Full Zoomies', 'Adolescent Insanity', 'Puppy Pandemonium', 'Ball Is Life',
+  'Life of the Party', 'People Person',
+  'Shy But Canine Curious', 'Introvert', 'Picky About Pals',
+  'Grumpy Gus', 'Fun Police', 'Treat Connoisseur', 'Happy Humper',
 ];
 const GENDERS = ['Male', 'Female', 'Non-Binary'];
 
