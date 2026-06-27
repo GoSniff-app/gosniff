@@ -26,6 +26,7 @@ function AppContent() {
   const { user, dogs, loading, dogsLoaded } = useAuth();
   const { sendPackRequest } = usePack();
   const [authMode, setAuthMode] = useState('welcome');
+  const [joinOrigin, setJoinOrigin] = useState('welcome');
   const [inviteToast, setInviteToast] = useState(null);
   const [loadingLine] = useState(() => LOADING_LINES[Math.floor(Math.random() * LOADING_LINES.length)]);
   const inviteHandledRef = useRef(false);
@@ -96,8 +97,8 @@ function AppContent() {
     </>
   );
   if (user && dogs.length === 0) return <JoinThePack />;
-  if (authMode === 'join') return <JoinThePack onBack={() => setAuthMode('signin')} />;
-  if (authMode === 'signin') return <SignIn onSwitchToJoin={() => setAuthMode('join')} />;
+  if (authMode === 'join') return <JoinThePack onBack={() => setAuthMode(joinOrigin)} />;
+  if (authMode === 'signin') return <SignIn onSwitchToJoin={() => { setJoinOrigin('signin'); setAuthMode('join'); }} />;
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--gs-bg)' }} className="paw-pattern">
@@ -119,7 +120,7 @@ function AppContent() {
           <button
             className="btn-primary"
             style={{ width: '100%', fontSize: '1.125rem', border: '2px solid var(--gs-teal-dark, #007A87)' }}
-            onClick={() => setAuthMode('join')}
+            onClick={() => { setJoinOrigin('welcome'); setAuthMode('join'); }}
           >
             Join the Pack
           </button>
